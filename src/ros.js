@@ -33,8 +33,7 @@ export function createTopic(name, messageType, options = {}) {
 
 const _cmdVel = createTopic(
   TOPICS.cmdVel.name,
-  TOPICS.cmdVel.type
-);
+  TOPICS.cmdVel.type);
 export function publishCmdVel(linear, angular) {
   _cmdVel.publish(new ROSLIB.Message({ linear, angular }));
 }
@@ -43,8 +42,8 @@ const _ttsSpeak = createTopic(
   TOPICS.ttsSpeak.name,
   TOPICS.ttsSpeak.type
 );
-export function publishTTS(text) {
-  _ttsSpeak.publish(new ROSLIB.Message({ data: text }));
+export function publishTTS(text, lang = "en", forceStreamMode = false) {
+  _ttsSpeak.publish(new ROSLIB.Message({ text: text, lang: lang, force_stream_mode : forceStreamMode }));
 }
 
 const _updateNeck = createTopic(
