@@ -13,10 +13,6 @@ export const TOPICS = Object.freeze({
     name: "/cmd_vel",
     type: "geometry_msgs/Twist",
   },
-  ttsSpeak: {
-    name: "/fbot_speech/ss/say_something",
-    type: "fbot_speech_msgs/SynthesizeSpeechMessage",
-  },
   neckControl: {
     name: "/updateNeck",
     type: "std_msgs/Float64MultiArray",
@@ -27,23 +23,27 @@ export const TOPICS = Object.freeze({
   },
 });
 
+export const SERVICES = Object.freeze({
+  saySomething: {
+    name: "/fbot_speech/ss/say_something",
+    type: "fbot_speech_msgs/SynthesizeSpeech",
+  },
+});
+
 export function createTopic(name, messageType, options = {}) {
   return new ROSLIB.Topic({ ros, name, messageType, ...options });
 }
 
-const _cmdVel = createTopic(
-  TOPICS.cmdVel.name,
-  TOPICS.cmdVel.type);
-export function publishCmdVel(linear, angular) {
-  _cmdVel.publish(new ROSLIB.Message({ linear, angular }));
+export function createService(name, serviceType) {
+  return new ROSLIB.Service({ ros, name, serviceType });
 }
 
-const _ttsSpeak = createTopic(
-  TOPICS.ttsSpeak.name,
-  TOPICS.ttsSpeak.type
+const _cmdVel = createTopic(
+  TOPICS.cmdVel.name,
+  TOPICS.cmdVel.type,
 );
-export function publishTTS(text, lang = "en", forceStreamMode = false) {
-  _ttsSpeak.publish(new ROSLIB.Message({ text: text, lang: lang, force_stream_mode : forceStreamMode }));
+export function publishCmdVel(linear, angular) {
+  _cmdVel.publish(new ROSLIB.Message({ linear, angular }));
 }
 
 const _updateNeck = createTopic(
@@ -60,4 +60,29 @@ const _faceEmotion = createTopic(
 );
 export function publishFaceEmotion(emotion) {
   _faceEmotion.publish(new ROSLIB.Message({ data: emotion }));
+}
+
+const _saySomethingClient = createService(
+  SERVICES.saySomething.name,
+  SERVICES.saySomething.type,
+);
+export function callSaySomething(text, lang = "en") {
+  const request = new ROSLIB.ServiceRequest({
+    text: text,
+    lang: lang,
+  });
+
+  return new Promise((resolve, reject) => {
+    _saySomethingClient.callService(
+      request,
+      (result) => {
+        console.log("[ROS] Speech processed successfully:", result);
+        resolve(result);
+      },
+      (error) => {
+        console.error("[ROS] Error calling speech service:", error);
+        reject(error);
+      },
+    );
+  });
 }
