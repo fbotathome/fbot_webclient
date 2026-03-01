@@ -207,12 +207,13 @@
   <!-- neck -->
   <div class="card">
     <h2>updateNeck — Pescoço</h2>
-    <label>Pan (graus)</label>
-    <input id="neck-pan" type="number" value="0" step="5" />
-    <label>Tilt (graus)</label>
-    <input id="neck-tilt" type="number" value="0" step="5" />
+    <label>Pan (120–240)</label>
+    <input id="neck-pan" type="number" value="180" step="5" min="120" max="240" />
+    <label>Tilt (150–190)</label>
+    <input id="neck-tilt" type="number" value="180" step="5" min="150" max="190" />
     <div class="btn-row">
       <button onclick="sendNeck()">Publicar</button>
+      <button class="warn" onclick="resetNeckPos()">Reset</button>
     </div>
   </div>
 
@@ -220,13 +221,7 @@
   <div class="card">
     <h2>faceEmotion — Emoção</h2>
     <label>Emoção</label>
-    <select id="emotion-select">
-      <option value="happy">happy</option>
-      <option value="sad">sad</option>
-      <option value="angry">angry</option>
-      <option value="surprised">surprised</option>
-      <option value="neutral">neutral</option>
-    </select>
+    <select id="emotion-select"></select>
     <div class="btn-row">
       <button onclick="sendEmotion()">Publicar</button>
     </div>
@@ -253,12 +248,11 @@
 </div>
 
 <script type="module">
-  import { ros, publishCmdVel, publishUpdateNeck, publishFaceEmotion, callSaySomething } from './src/ros.js';
-  window.publishCmdVel     = publishCmdVel;
-  window.publishUpdateNeck = publishUpdateNeck;
-  window.publishFaceEmotion = publishFaceEmotion;
-  window.callSaySomething  = callSaySomething;
-  window.ros               = ros;
+  import { ros, publishCmdVel } from './src/ros.js';
+  import { setNeckPosition, resetNeck } from './src/neckController.js';
+  import { setEmotion, EMOTIONS } from './src/emotionController.js';
+  import { speech } from './src/speechController.js';
+  window.ros = ros;
   // ── Log ──────────────────────────────────────────────
   function log(msg, type = 'info') {
     const el = document.getElementById('log');
@@ -308,15 +302,34 @@
   window.sendNeck = () => {
     const pan  = parseFloat(document.getElementById('neck-pan').value);
     const tilt = parseFloat(document.getElementById('neck-tilt').value);
-    publishUpdateNeck([pan, tilt]);
-    log(`updateNeck → [${pan}, ${tilt}]`);
+    setNeckPosition(pan, tilt);
+    log(`updateNeck → pan=${pan}, tilt=${tilt}`);
+  };
+
+  window.resetNeckPos = () => {
+    resetNeck();
+    document.getElementById('neck-pan').value = 180;
+    document.getElementById('neck-tilt').value = 180;
+    log('Pescoço resetado para posição padrão.', 'warn');
   };
 
   // ── face emotion ─────────────────────────────────────
+  const emotionSelect = document.getElementById('emotion-select');
+  EMOTIONS.forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e;
+    opt.textContent = e;
+    emotionSelect.appendChild(opt);
+  });
+
   window.sendEmotion = () => {
-    const emotion = document.getElementById('emotion-select').value;
-    publishFaceEmotion(emotion);
-    log(`faceEmotion → "${emotion}"`);
+    const emotion = emotionSelect.value;
+    try {
+      setEmotion(emotion);
+      log(`faceEmotion → "${emotion}"`);
+    } catch (e) {
+      log('Erro: ' + e.message, 'err');
+    }
   };
 
   // ── say something ────────────────────────────────────
@@ -325,10 +338,10 @@
     const lang = document.getElementById('tts-lang').value;
     log(`saySomething → "${text}" [${lang}]`);
     try {
-      const result = await callSaySomething(text, lang);
+      const result = await speech(text, lang);
       log('Resposta do serviço: ' + JSON.stringify(result), 'ok');
     } catch (e) {
-      log('Erro no serviço: ' + e, 'err');
+      log('Erro: ' + e.message, 'err');
     }
   };
 </script>
