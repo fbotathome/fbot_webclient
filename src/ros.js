@@ -2,11 +2,12 @@ import CONFIG from "./config.js";
 
 export const ros = new ROSLIB.Ros({ url: CONFIG.rosbridgeUrl });
 
-ros.on("connection", () => console.log("[ROS] Conectado"));
+ros.on("connection", () => console.log("[ROS] Connected"));
 ros.on("error", (e) => console.error("[ROS] Error:", e));
-ros.on("close", () =>
-  setTimeout(() => ros.connect(CONFIG.rosbridgeUrl), CONFIG.reconnectTimeout),
-);
+ros.on("close", () => {
+  console.warn("[ROS] Disconnected, reconnecting...");
+  setTimeout(() => ros.connect(CONFIG.rosbridgeUrl), CONFIG.reconnectTimeout);
+});
 
 export const TOPICS = Object.freeze({
   cmdVel: {
