@@ -1,10 +1,10 @@
 import { publishUpdateNeck } from "./ros.js";
 
-const NECK_UP_LIMIT = 190.0;
-const NECK_DOWN_LIMIT = 150.0;
-const NECK_RIGHT_LIMIT = 240.0;
-const NECK_LEFT_LIMIT = 120.0;
-const NECK_DEFAULT = [180, 180];
+export const NECK_UP_LIMIT = 190.0;
+export const NECK_DOWN_LIMIT = 150.0;
+export const NECK_RIGHT_LIMIT = 240.0;
+export const NECK_LEFT_LIMIT = 120.0;
+export const NECK_DEFAULT = [180, 180];
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
