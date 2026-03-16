@@ -87,3 +87,32 @@ export function callSaySomething(text, lang = "en") {
     );
   });
 }
+
+export let viewer = null;
+export let gridClient = null;
+
+export function initMap() {
+  const container = document.getElementById('map');
+  if (!container) return;
+
+  viewer = new ROS2D.Viewer({
+    divID: 'map',
+    width: container.clientWidth,
+    height: container.clientHeight
+  });
+
+  gridClient = new ROS2D.OccupancyGridClient({
+    ros: ros,
+    rootObject: viewer.scene,
+    continuous: true
+  });
+
+  gridClient.on('change', function() {
+    viewer.scaleToDimensions(gridClient.currentGrid.width, gridClient.currentGrid.height);
+    viewer.shift(
+      gridClient.currentGrid.pose.position.x,
+      gridClient.currentGrid.pose.position.y
+    );
+  });
+};
+
