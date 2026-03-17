@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/sidebar.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+
+    <title>Web Client</title>
+</head>
+
+<body>
+
+<div class="layout">
+
+    <aside class="sidebar">
+
+        <div class="logo">
+            <img src="img/Logotipo.svg" alt="FBOT logo">
+            <h2>FBOT</h2>
+        </div>
+
+        <a class="active">Dashboard</a>
+        <a>Navigation</a>
+        <a>Vision</a>
+        <a>Speech / TTS</a>
+        <a>Emotions</a>
+        <a>Manipulator</a>
+
+    </aside>
+
+
+    <main class="main">
+
+        <header class="header">
+            <h1>Dashboard</h1>
+        </header>
+
+        <section class="cards">
+            <div class="card">
+                <h3>CPU</h3>
+                <p class="value">--</p>
+            </div>
+            <div class="card">
+                <h3>Memory</h3>
+                <p class="value">--</p>
+            </div>
+            <div class="card">
+                <h3>Network</h3>
+                <p class="value">--</p>
+            </div>  
+            <div class="card">
+                <h3>Nodes</h3>
+                <p class="value">--</p>
+            </div>
+            <div class="card">
+                <h3>Topics</h3>
+                <p class="value">--</p>
+            </div>
+        </section>
+
+        <section class="logs">
+            <h2>System Logs</h2>
+        </section>
+
+        <section class="power">
+            <h2>Power Control</h2>
+            <div class="power-grid">
+                <div class="power-card">
+                    <h3>Jetson</h3>
+                    <p>Status: --</p>
+                    <button>Shutdown</button>
+                </div>
+
+                <div class="power-card">
+                    <h3>Boris</h3>
+                    <p>Status: ---</p>
+                    <button>Shutdown</button>
+                </div>
+
+                <div class="power-card">
+                    <h3>Full System</h3>
+                    <p>Shutdown everything</p>
+                    <button>Shutdown All</button>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+</body>
+</html>
