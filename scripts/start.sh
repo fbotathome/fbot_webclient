@@ -10,7 +10,7 @@ LOCAL_IP=$(hostname -I | awk '{print $1}')
 
 echo "Acesse: http://$LOCAL_IP:$PORT?robot_ip=$LOCAL_IP"
 
-ros2 launch rosbridge_server rosbridge_websocket_launch.xml & BRIDGE_PID=$!
+ros2 launch rosbridge_server rosbridge_websocket_launch.xml address:=0.0.0.0 &
 
 ros2 run web_video_server web_video_server --ros-args -p port:=8081 -p default_stream_type:=mjpeg & VIDEO_PID=$!
 
