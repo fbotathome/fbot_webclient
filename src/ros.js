@@ -22,6 +22,10 @@ export const TOPICS = Object.freeze({
     name: "/fbot_face/emotion",
     type: "std_msgs/String",
   },
+  robotStatus: {
+    name: "/fbot_webclient/robot_status",
+    type: "std_msgs/String",
+  },
 });
 
 export const SERVICES = Object.freeze({
@@ -61,6 +65,21 @@ const _faceEmotion = createTopic(
 );
 export function publishFaceEmotion(emotion) {
   _faceEmotion.publish(new ROSLIB.Message({ data: emotion }));
+}
+
+const _robotStatus = createTopic(
+  TOPICS.robotStatus.name,
+  TOPICS.robotStatus.type,
+);
+export function subscribeRobotStatus(callback) {
+  _robotStatus.subscribe((msg) => {
+    try {
+      callback(JSON.parse(msg.data));
+    } catch (e) {
+      console.error("[ROS] Failed to parse robot_status:", e);
+    }
+  });
+  return () => _robotStatus.unsubscribe();
 }
 
 const _saySomethingClient = createService(
