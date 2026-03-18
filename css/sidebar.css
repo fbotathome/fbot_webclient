@@ -22,6 +22,7 @@
 
 .logo img{
   width:40px;
+  border-radius: 6px;
 }
 
 .logo-text{
@@ -41,7 +42,7 @@
 }
 
 .menu a{
-
+  
   padding:12px 16px;
 
   border-radius:8px;
@@ -55,12 +56,12 @@
 }
 
 .menu a:hover{
-  background:#1a1a1a;
+  background:#fe5000;
 }
 
 .menu a.active{
 
   background:var(--sidebar-primary);
 
-  color:black;
+  color:#fe5000;
 }

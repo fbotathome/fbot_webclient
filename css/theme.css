@@ -1,21 +1,21 @@
 :root {
-  --background: #0a0a0a;
-  --foreground: #ffffff;
+  --background: #25282a;
+  --foreground: #f2f2f2;
 
-  --card: #1a1a1a;
-  --card-foreground: #ffffff;
+  --card: #1e2022;
+  --card-foreground: #f2f2f2;
 
-  --primary: #ff6600;
-  --primary-foreground: #000;
+  --primary: #fe5000;
+  --primary-foreground: #25282a;
 
-  --accent: #ff6600;
+  --accent: #fe5000;
 
-  --border: rgba(255,102,0,0.2);
+  --border: #fe5000;
 
-  --sidebar: #0a0a0a;
-  --sidebar-foreground: #ffffff;
-  --sidebar-primary: #ff6600;
-  --sidebar-border: rgba(255,102,0,0.15);
+  --sidebar: #25282a;
+  --sidebar-foreground: #f2f2f2;
+  --sidebar-primary: #fe5000;
+  --sidebar-border: #fe5000;
 
   --radius: 10px;
 }
