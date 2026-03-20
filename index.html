@@ -180,7 +180,8 @@
                 grid-column: 1 / -1;
             }
 
-            #camera-feed {
+            #camera-feed,
+            #rviz-feed {
                 display: block;
                 width: 100%;
                 height: auto;
@@ -252,6 +253,16 @@
                     const robotIp = window.location.hostname;
                     document.getElementById("camera-feed").src =
                         `http://${robotIp}:8081/stream?topic=/camera/color/image_raw&type=mjpeg`;
+                </script>
+            </div>
+
+            <!-- rviz render -->
+            <div class="card camera">
+                <h2>rviz_render — Cena 3D</h2>
+                <img id="rviz-feed" alt="RViz render" />
+                <script>
+                    document.getElementById("rviz-feed").src =
+                        `http://${window.location.hostname}:8081/stream?topic=/rviz_render&type=mjpeg`;
                 </script>
             </div>
 
