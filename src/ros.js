@@ -2,7 +2,34 @@ import CONFIG from "./config.js";
 
 export const ros = new ROSLIB.Ros({ url: CONFIG.rosbridgeUrl });
 
-ros.on("connection", () => console.log("[ROS] Connected"));
+const _publishers = new Set();
+const _subscribers = new Map();
+let _hasConnectedOnce = false;
+
+function _resetPublishers() {
+  for (const topic of _publishers) {
+    topic.isAdvertised = false;
+  }
+}
+
+function _restoreSubscriptions() {
+  for (const [topic, wrapper] of _subscribers) {
+    topic.subscribeId = null;
+    topic.subscribe(wrapper);
+  }
+}
+
+ros.on("connection", () => {
+  if (_hasConnectedOnce) {
+    console.log("[ROS] Reconnected — restoring subscriptions");
+    _resetPublishers();
+    _restoreSubscriptions();
+  } else {
+    console.log("[ROS] Connected");
+  }
+  _hasConnectedOnce = true;
+});
+
 ros.on("error", (e) => console.error("[ROS] Error:", e));
 ros.on("close", () => {
   console.warn("[ROS] Disconnected, reconnecting...");
@@ -39,19 +66,32 @@ export function createTopic(name, messageType, options = {}) {
   return new ROSLIB.Topic({ ros, name, messageType, ...options });
 }
 
+function createPublisher(name, messageType, options = {}) {
+  const topic = createTopic(name, messageType, options);
+  _publishers.add(topic);
+  return topic;
+}
+
+function trackSubscription(topic, wrapper) {
+  _subscribers.set(topic, wrapper);
+  topic.subscribe(wrapper);
+
+  return () => {
+    topic.unsubscribe();
+    _subscribers.delete(topic);
+  };
+}
+
 export function createService(name, serviceType) {
   return new ROSLIB.Service({ ros, name, serviceType });
 }
 
-const _cmdVel = createTopic(
-  TOPICS.cmdVel.name,
-  TOPICS.cmdVel.type,
-);
+const _cmdVel = createPublisher(TOPICS.cmdVel.name, TOPICS.cmdVel.type);
 export function publishCmdVel(linear, angular) {
   _cmdVel.publish(new ROSLIB.Message({ linear, angular }));
 }
 
-const _updateNeck = createTopic(
+const _updateNeck = createPublisher(
   TOPICS.neckControl.name,
   TOPICS.neckControl.type,
 );
@@ -59,7 +99,7 @@ export function publishUpdateNeck(position) {
   _updateNeck.publish(new ROSLIB.Message({ data: position }));
 }
 
-const _faceEmotion = createTopic(
+const _faceEmotion = createPublisher(
   TOPICS.faceEmotion.name,
   TOPICS.faceEmotion.type,
 );
@@ -72,14 +112,15 @@ const _robotStatus = createTopic(
   TOPICS.robotStatus.type,
 );
 export function subscribeRobotStatus(callback) {
-  _robotStatus.subscribe((msg) => {
+  const wrapper = (msg) => {
     try {
       callback(JSON.parse(msg.data));
     } catch (e) {
       console.error("[ROS] Failed to parse robot_status:", e);
     }
-  });
-  return () => _robotStatus.unsubscribe();
+  };
+
+  return trackSubscription(_robotStatus, wrapper);
 }
 
 const _saySomethingClient = createService(
