@@ -1,382 +1,462 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BORIS — ROS Test Panel</title>
-  <script src="https://cdn.jsdelivr.net/npm/eventemitter2@6/lib/eventemitter2.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/easeljs@1/lib/easeljs.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/ros2d@0/build/ros2d.min.js"></script>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;700&display=swap');
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>BORIS — ROS Test Panel</title>
+        <script src="https://cdn.jsdelivr.net/npm/eventemitter2@6/lib/eventemitter2.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/easeljs@1/lib/easeljs.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/ros2d@0/build/ros2d.min.js"></script>
+        <style>
+            @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;700&display=swap");
 
-    :root {
-      --bg: #0d0f14;
-      --surface: #161920;
-      --border: #252830;
-      --accent: #00e5a0;
-      --accent-dim: #00e5a022;
-      --warn: #f5a623;
-      --danger: #ff4d4d;
-      --text: #d4d8e2;
-      --muted: #555c6e;
-    }
+            :root {
+                --bg: #0d0f14;
+                --surface: #161920;
+                --border: #252830;
+                --accent: #00e5a0;
+                --accent-dim: #00e5a022;
+                --warn: #f5a623;
+                --danger: #ff4d4d;
+                --text: #d4d8e2;
+                --muted: #555c6e;
+            }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 13px;
-      min-height: 100vh;
-      padding: 24px;
-    }
+            body {
+                background: var(--bg);
+                color: var(--text);
+                font-family: "JetBrains Mono", monospace;
+                font-size: 13px;
+                min-height: 100vh;
+                padding: 24px;
+            }
 
-    header {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 28px;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 16px;
-    }
+            header {
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                margin-bottom: 28px;
+                border-bottom: 1px solid var(--border);
+                padding-bottom: 16px;
+            }
 
-    header h1 {
-      font-family: 'Syne', sans-serif;
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      color: #fff;
-    }
+            header h1 {
+                font-family: "Syne", sans-serif;
+                font-size: 20px;
+                font-weight: 700;
+                letter-spacing: 0.05em;
+                color: #fff;
+            }
 
-    header h1 span { color: var(--accent); }
+            header h1 span {
+                color: var(--accent);
+            }
 
-    #status-dot {
-      width: 10px; height: 10px;
-      border-radius: 50%;
-      background: var(--danger);
-      flex-shrink: 0;
-      transition: background 0.3s;
-      box-shadow: 0 0 0 3px #ff4d4d22;
-    }
-    #status-dot.connected {
-      background: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-dim);
-    }
+            #status-dot {
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                background: var(--danger);
+                flex-shrink: 0;
+                transition: background 0.3s;
+                box-shadow: 0 0 0 3px #ff4d4d22;
+            }
+            #status-dot.connected {
+                background: var(--accent);
+                box-shadow: 0 0 0 3px var(--accent-dim);
+            }
 
-    #status-label {
-      font-size: 11px;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-    }
+            #status-label {
+                font-size: 11px;
+                color: var(--muted);
+                text-transform: uppercase;
+                letter-spacing: 0.1em;
+            }
 
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 16px;
-    }
+            .grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                gap: 16px;
+            }
 
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 18px;
-    }
+            .card {
+                background: var(--surface);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                padding: 18px;
+            }
 
-    .card h2 {
-      font-family: 'Syne', sans-serif;
-      font-size: 13px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--accent);
-      margin-bottom: 14px;
-    }
+            .card h2 {
+                font-family: "Syne", sans-serif;
+                font-size: 13px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.1em;
+                color: var(--accent);
+                margin-bottom: 14px;
+            }
 
-    label {
-      display: block;
-      color: var(--muted);
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 4px;
-      margin-top: 10px;
-    }
-    label:first-of-type { margin-top: 0; }
+            label {
+                display: block;
+                color: var(--muted);
+                font-size: 11px;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                margin-bottom: 4px;
+                margin-top: 10px;
+            }
+            label:first-of-type {
+                margin-top: 0;
+            }
 
-    input, select {
-      width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      color: var(--text);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 13px;
-      padding: 7px 10px;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    input:focus, select:focus { border-color: var(--accent); }
+            input,
+            select {
+                width: 100%;
+                background: var(--bg);
+                border: 1px solid var(--border);
+                border-radius: 4px;
+                color: var(--text);
+                font-family: "JetBrains Mono", monospace;
+                font-size: 13px;
+                padding: 7px 10px;
+                outline: none;
+                transition: border-color 0.2s;
+            }
+            input:focus,
+            select:focus {
+                border-color: var(--accent);
+            }
 
-    .btn-row {
-      display: flex;
-      gap: 8px;
-      margin-top: 14px;
-      flex-wrap: wrap;
-    }
+            .btn-row {
+                display: flex;
+                gap: 8px;
+                margin-top: 14px;
+                flex-wrap: wrap;
+            }
 
-    button {
-      background: var(--accent-dim);
-      border: 1px solid var(--accent);
-      border-radius: 4px;
-      color: var(--accent);
-      cursor: pointer;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      font-weight: 600;
-      padding: 7px 14px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      transition: background 0.15s;
-    }
-    button:hover { background: #00e5a033; }
-    button.danger { border-color: var(--danger); color: var(--danger); background: #ff4d4d11; }
-    button.danger:hover { background: #ff4d4d22; }
-    button.warn { border-color: var(--warn); color: var(--warn); background: #f5a62311; }
-    button.warn:hover { background: #f5a62322; }
+            button {
+                background: var(--accent-dim);
+                border: 1px solid var(--accent);
+                border-radius: 4px;
+                color: var(--accent);
+                cursor: pointer;
+                font-family: "JetBrains Mono", monospace;
+                font-size: 12px;
+                font-weight: 600;
+                padding: 7px 14px;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                transition: background 0.15s;
+            }
+            button:hover {
+                background: #00e5a033;
+            }
+            button.danger {
+                border-color: var(--danger);
+                color: var(--danger);
+                background: #ff4d4d11;
+            }
+            button.danger:hover {
+                background: #ff4d4d22;
+            }
+            button.warn {
+                border-color: var(--warn);
+                color: var(--warn);
+                background: #f5a62311;
+            }
+            button.warn:hover {
+                background: #f5a62322;
+            }
 
-    /* ── Camera ─────────────────────────────────────── */
-    .card.camera {
-      grid-column: 1 / -1;
-    }
+            /* ── Camera ─────────────────────────────────────── */
+            .card.camera {
+                grid-column: 1 / -1;
+            }
 
-    #camera-feed {
-      display: block;
-      width: 100%;
-      height: auto;
-      border-radius: 4px;
-      border: 1px solid var(--border);
-      background: var(--bg);
-    }
-    /* ── Map ─────────────────────────────────────────── */
-    .card.map {
-      grid-column: 1 / -1;
-    }
+            #camera-feed {
+                display: block;
+                width: 100%;
+                height: auto;
+                border-radius: 4px;
+                border: 1px solid var(--border);
+                background: var(--bg);
+            }
+            /* ── Map ─────────────────────────────────────────── */
+            .card.map {
+                grid-column: 1 / -1;
+            }
 
-    #map {
-      width: 100%;
-      height: 500px;
-      border-radius: 4px;
-      border: 1px solid var(--border);
-      background: var(--bg);
-    }
+            #map {
+                width: 100%;
+                height: 500px;
+                border-radius: 4px;
+                border: 1px solid var(--border);
+                background: var(--bg);
+            }
 
-    /* ── Log ────────────────────────────────────────── */
-    #log {
-      grid-column: 1 / -1;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 14px;
-      height: 200px;
-      overflow-y: auto;
-      font-size: 12px;
-      line-height: 1.7;
-    }
+            /* ── Log ────────────────────────────────────────── */
+            #log {
+                grid-column: 1 / -1;
+                background: var(--bg);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                padding: 14px;
+                height: 200px;
+                overflow-y: auto;
+                font-size: 12px;
+                line-height: 1.7;
+            }
 
-    .log-line { display: flex; gap: 10px; }
-    .log-line .ts { color: var(--muted); flex-shrink: 0; }
-    .log-line.info .msg { color: var(--text); }
-    .log-line.ok .msg { color: var(--accent); }
-    .log-line.err .msg { color: var(--danger); }
-    .log-line.warn .msg { color: var(--warn); }
-  </style>
-</head>
-<body>
+            .log-line {
+                display: flex;
+                gap: 10px;
+            }
+            .log-line .ts {
+                color: var(--muted);
+                flex-shrink: 0;
+            }
+            .log-line.info .msg {
+                color: var(--text);
+            }
+            .log-line.ok .msg {
+                color: var(--accent);
+            }
+            .log-line.err .msg {
+                color: var(--danger);
+            }
+            .log-line.warn .msg {
+                color: var(--warn);
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <div id="status-dot"></div>
+            <span id="status-label">Desconectado</span>
+            <h1>BORIS <span>//</span> ROS Test Panel</h1>
+        </header>
 
-<header>
-  <div id="status-dot"></div>
-  <span id="status-label">Desconectado</span>
-  <h1>BORIS <span>//</span> ROS Test Panel</h1>
-</header>
+        <div class="grid">
+            <!-- camera/image_raw -->
+            <div class="card camera">
+                <h2>camera/image_raw — Feed</h2>
+                <img id="camera-feed" alt="Camera feed" />
+                <script>
+                    const robotIp = window.location.hostname;
+                    document.getElementById("camera-feed").src =
+                        `http://${robotIp}:8081/stream?topic=/camera/color/image_raw&type=mjpeg`;
+                </script>
+            </div>
 
-<div class="grid">
+            <!-- map -->
+            <div class="card map">
+                <h2>map — Mapa 2D</h2>
+                <div id="map"></div>
+            </div>
 
-  <!-- camera/image_raw -->
-  <div class="card camera">
-    <h2>camera/image_raw — Feed</h2>
-    <img id="camera-feed" alt="Camera feed" />
-    <script>
-      const robotIp = window.location.hostname;
-      document.getElementById("camera-feed").src = 
-        `http://${robotIp}:8081/stream?topic=/camera/color/image_raw&type=mjpeg`;
-    </script>
-  </div>
+            <!-- cmd_vel -->
+            <div class="card">
+                <h2>cmd_vel — Movimento</h2>
+                <label>Linear X</label>
+                <input id="lin-x" type="number" value="0.2" step="0.05" />
+                <label>Linear Y</label>
+                <input id="lin-y" type="number" value="0.0" step="0.05" />
+                <label>Angular Z</label>
+                <input id="ang-z" type="number" value="0.0" step="0.05" />
+                <div class="btn-row">
+                    <button onclick="sendCmdVel()">Publicar</button>
+                    <button class="warn" onclick="stopRobot()">STOP</button>
+                </div>
+            </div>
 
-<!-- map -->
-<div class="card map">
-  <h2>map — Mapa 2D</h2>
-  <div id="map"></div>
-</div>
+            <!-- neck -->
+            <div class="card">
+                <h2>updateNeck — Pescoço</h2>
+                <label>Pan (120–240)</label>
+                <input
+                    id="neck-pan"
+                    type="number"
+                    value="180"
+                    step="5"
+                    min="120"
+                    max="240"
+                />
+                <label>Tilt (150–190)</label>
+                <input
+                    id="neck-tilt"
+                    type="number"
+                    value="180"
+                    step="5"
+                    min="150"
+                    max="190"
+                />
+                <div class="btn-row">
+                    <button onclick="sendNeck()">Publicar</button>
+                    <button class="warn" onclick="resetNeckPos()">Reset</button>
+                </div>
+            </div>
 
-  <!-- cmd_vel -->
-  <div class="card">
-    <h2>cmd_vel — Movimento</h2>
-    <label>Linear X</label>
-    <input id="lin-x" type="number" value="0.2" step="0.05" />
-    <label>Linear Y</label>
-    <input id="lin-y" type="number" value="0.0" step="0.05" />
-    <label>Angular Z</label>
-    <input id="ang-z" type="number" value="0.0" step="0.05" />
-    <div class="btn-row">
-      <button onclick="sendCmdVel()">Publicar</button>
-      <button class="warn" onclick="stopRobot()">STOP</button>
-    </div>
-  </div>
+            <!-- face emotion -->
+            <div class="card">
+                <h2>faceEmotion — Emoção</h2>
+                <label>Emoção</label>
+                <select id="emotion-select"></select>
+                <div class="btn-row">
+                    <button onclick="sendEmotion()">Publicar</button>
+                </div>
+            </div>
 
-  <!-- neck -->
-  <div class="card">
-    <h2>updateNeck — Pescoço</h2>
-    <label>Pan (120–240)</label>
-    <input id="neck-pan" type="number" value="180" step="5" min="120" max="240" />
-    <label>Tilt (150–190)</label>
-    <input id="neck-tilt" type="number" value="180" step="5" min="150" max="190" />
-    <div class="btn-row">
-      <button onclick="sendNeck()">Publicar</button>
-      <button class="warn" onclick="resetNeckPos()">Reset</button>
-    </div>
-  </div>
+            <!-- say something -->
+            <div class="card">
+                <h2>saySomething — Fala</h2>
+                <label>Texto</label>
+                <input id="tts-text" type="text" value="Hello, I am Boris!" />
+                <label>Idioma</label>
+                <select id="tts-lang">
+                    <option value="en">en</option>
+                    <option value="pt">pt</option>
+                </select>
+                <div class="btn-row">
+                    <button onclick="sendSpeech()">Chamar serviço</button>
+                </div>
+            </div>
 
-  <!-- face emotion -->
-  <div class="card">
-    <h2>faceEmotion — Emoção</h2>
-    <label>Emoção</label>
-    <select id="emotion-select"></select>
-    <div class="btn-row">
-      <button onclick="sendEmotion()">Publicar</button>
-    </div>
-  </div>
+            <!-- log -->
+            <div id="log"></div>
+        </div>
 
-  <!-- say something -->
-  <div class="card">
-    <h2>saySomething — Fala</h2>
-    <label>Texto</label>
-    <input id="tts-text" type="text" value="Hello, I am Boris!" />
-    <label>Idioma</label>
-    <select id="tts-lang">
-      <option value="en">en</option>
-      <option value="pt">pt</option>
-    </select>
-    <div class="btn-row">
-      <button onclick="sendSpeech()">Chamar serviço</button>
-    </div>
-  </div>
+        <script type="module">
+            import { ros, publishCmdVel, createTopic } from "./src/ros.js";
+            import {
+                setNeckPosition,
+                resetNeck,
+            } from "./src/neckController.js";
+            import { setEmotion, EMOTIONS } from "./src/emotionController.js";
+            import { speech } from "./src/speechController.js";
+            import { initMap } from "./src/mapController.js";
+            window.ros = ros;
+            initMap();
 
-  <!-- log -->
-  <div id="log"></div>
+            // ── Log ──────────────────────────────────────────────
+            function log(msg, type = "info") {
+                const el = document.getElementById("log");
+                const ts = new Date().toLocaleTimeString("pt-BR");
+                el.innerHTML += `<div class="log-line ${type}"><span class="ts">${ts}</span><span class="msg">${msg}</span></div>`;
+                el.scrollTop = el.scrollHeight;
+            }
+            window._log = log;
 
-</div>
+            // ── Conexão ──────────────────────────────────────────
+            ros.on("connection", () => {
+                document
+                    .getElementById("status-dot")
+                    .classList.add("connected");
+                document.getElementById("status-label").textContent =
+                    "Conectado";
+                log("Conectado ao rosbridge!", "ok");
+            });
+            ros.on("error", (e) => log("Erro: " + e, "err"));
+            ros.on("close", () => {
+                document
+                    .getElementById("status-dot")
+                    .classList.remove("connected");
+                document.getElementById("status-label").textContent =
+                    "Desconectado";
+                log("Conexão encerrada.", "warn");
+            });
 
-<script type="module">
-  import { ros, publishCmdVel, createTopic, initMap } from './src/ros.js';
-  import { setNeckPosition, resetNeck }       from './src/neckController.js';
-  import { setEmotion, EMOTIONS }             from './src/emotionController.js';
-  import { speech }                           from './src/speechController.js';
-  window.ros = ros;
-  initMap();
+            // ── cmd_vel ──────────────────────────────────────────
+            window.sendCmdVel = () => {
+                const lx = parseFloat(document.getElementById("lin-x").value);
+                const ly = parseFloat(document.getElementById("lin-y").value);
+                const az = parseFloat(document.getElementById("ang-z").value);
+                publishCmdVel({ x: lx, y: ly, z: 0 }, { x: 0, y: 0, z: az });
+                log(`cmd_vel → linear(${lx}, ${ly}) angular(${az})`);
+            };
 
-  // ── Log ──────────────────────────────────────────────
-  function log(msg, type = 'info') {
-    const el = document.getElementById('log');
-    const ts = new Date().toLocaleTimeString('pt-BR');
-    el.innerHTML += `<div class="log-line ${type}"><span class="ts">${ts}</span><span class="msg">${msg}</span></div>`;
-    el.scrollTop = el.scrollHeight;
-  }
-  window._log = log;
+            window.stopRobot = () => {
+                publishCmdVel({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 });
+                log("STOP enviado.", "warn");
+            };
 
-  // ── Conexão ──────────────────────────────────────────
-  ros.on('connection', () => {
-    document.getElementById('status-dot').classList.add('connected');
-    document.getElementById('status-label').textContent = 'Conectado';
-    log('Conectado ao rosbridge!', 'ok');
-  });
-  ros.on('error', (e) => log('Erro: ' + e, 'err'));
-  ros.on('close', () => {
-    document.getElementById('status-dot').classList.remove('connected');
-    document.getElementById('status-label').textContent = 'Desconectado';
-    log('Conexão encerrada.', 'warn');
-  });
+            // ── neck ─────────────────────────────────────────────
+            window.sendNeck = () => {
+                const pan = parseFloat(
+                    document.getElementById("neck-pan").value,
+                );
+                const tilt = parseFloat(
+                    document.getElementById("neck-tilt").value,
+                );
+                setNeckPosition(pan, tilt);
+                log(`updateNeck → pan=${pan}, tilt=${tilt}`);
+            };
 
-  // ── cmd_vel ──────────────────────────────────────────
-  window.sendCmdVel = () => {
-    const lx = parseFloat(document.getElementById('lin-x').value);
-    const ly = parseFloat(document.getElementById('lin-y').value);
-    const az = parseFloat(document.getElementById('ang-z').value);
-    publishCmdVel({ x: lx, y: ly, z: 0 }, { x: 0, y: 0, z: az });
-    log(`cmd_vel → linear(${lx}, ${ly}) angular(${az})`);
-  };
+            window.resetNeckPos = () => {
+                resetNeck();
+                document.getElementById("neck-pan").value = 180;
+                document.getElementById("neck-tilt").value = 180;
+                log("Pescoço resetado para posição padrão.", "warn");
+            };
 
-  window.stopRobot = () => {
-    publishCmdVel({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0 });
-    log('STOP enviado.', 'warn');
-  };
+            // ── face emotion ─────────────────────────────────────
+            const emotionSelect = document.getElementById("emotion-select");
+            EMOTIONS.forEach((e) => {
+                const opt = document.createElement("option");
+                opt.value = e;
+                opt.textContent = e;
+                emotionSelect.appendChild(opt);
+            });
 
-  // ── neck ─────────────────────────────────────────────
-  window.sendNeck = () => {
-    const pan  = parseFloat(document.getElementById('neck-pan').value);
-    const tilt = parseFloat(document.getElementById('neck-tilt').value);
-    setNeckPosition(pan, tilt);
-    log(`updateNeck → pan=${pan}, tilt=${tilt}`);
-  };
+            window.sendEmotion = () => {
+                try {
+                    setEmotion(emotionSelect.value);
+                    log(`faceEmotion → "${emotionSelect.value}"`);
+                } catch (e) {
+                    log("Erro: " + e.message, "err");
+                }
+            };
 
-  window.resetNeckPos = () => {
-    resetNeck();
-    document.getElementById('neck-pan').value  = 180;
-    document.getElementById('neck-tilt').value = 180;
-    log('Pescoço resetado para posição padrão.', 'warn');
-  };
+            // ── say something ────────────────────────────────────
+            const SPEECH_TIMEOUT_MS = 8000;
 
-  // ── face emotion ─────────────────────────────────────
-  const emotionSelect = document.getElementById('emotion-select');
-  EMOTIONS.forEach(e => {
-    const opt = document.createElement('option');
-    opt.value = e; opt.textContent = e;
-    emotionSelect.appendChild(opt);
-  });
-
-  window.sendEmotion = () => {
-    try {
-      setEmotion(emotionSelect.value);
-      log(`faceEmotion → "${emotionSelect.value}"`);
-    } catch (e) {
-      log('Erro: ' + e.message, 'err');
-    }
-  };
-
-  // ── say something ────────────────────────────────────
-  const SPEECH_TIMEOUT_MS = 8000;
-
-  window.sendSpeech = async () => {
-    const text = document.getElementById('tts-text').value;
-    const lang = document.getElementById('tts-lang').value;
-    log(`saySomething → "${text}" [${lang}]`);
-    const timeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(
-        `Serviço não respondeu em ${SPEECH_TIMEOUT_MS / 1000}s — verifique se fbot_speech está ativo`
-      )), SPEECH_TIMEOUT_MS)
-    );
-    try {
-      const result = await Promise.race([speech(text, lang), timeout]);
-      log('Resposta do serviço: ' + JSON.stringify(result), 'ok');
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : (e ? String(e) : 'Serviço indisponível');
-      log('Erro: ' + msg, 'err');
-    }
-  };
-</script>
-
-</body>
+            window.sendSpeech = async () => {
+                const text = document.getElementById("tts-text").value;
+                const lang = document.getElementById("tts-lang").value;
+                log(`saySomething → "${text}" [${lang}]`);
+                const timeout = new Promise((_, reject) =>
+                    setTimeout(
+                        () =>
+                            reject(
+                                new Error(
+                                    `Serviço não respondeu em ${SPEECH_TIMEOUT_MS / 1000}s — verifique se fbot_speech está ativo`,
+                                ),
+                            ),
+                        SPEECH_TIMEOUT_MS,
+                    ),
+                );
+                try {
+                    const result = await Promise.race([
+                        speech(text, lang),
+                        timeout,
+                    ]);
+                    log("Resposta do serviço: " + JSON.stringify(result), "ok");
+                } catch (e) {
+                    const msg =
+                        e instanceof Error
+                            ? e.message
+                            : e
+                              ? String(e)
+                              : "Serviço indisponível";
+                    log("Erro: " + msg, "err");
+                }
+            };
+        </script>
+    </body>
 </html>
