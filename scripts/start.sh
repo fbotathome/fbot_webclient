@@ -12,7 +12,13 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 HOST="0.0.0.0"
 PORT=8080
 
-LOCAL_IP=$(hostname -I | awk '{print $1}')
+WIFI_IFACE=$(nmcli -t -f DEVICE,TYPE device | grep ':wifi' | cut -d: -f1 | head -1)
+LOCAL_IP=$(ip addr show "$WIFI_IFACE" | grep 'inet ' | awk '{print $2}' | cut -d'/' -f1)
+
+if [ -z "$LOCAL_IP" ]; then
+  echo "WARNING: WiFi IP not found. Using fallback."
+  LOCAL_IP=$(hostname -I | awk '{print $1}')
+fi
 
 echo "Access: http://$LOCAL_IP:$PORT?robot_ip=$LOCAL_IP"
 
