@@ -3,17 +3,21 @@
   --foreground: #f2f2f2;
 
   --card: #1e2022;
+  --card-secondary: #181a1b;
   --card-foreground: #f2f2f2;
 
   --primary: #fe5000;
   --primary-foreground: #25282a;
 
-  --accent: #fe5000;
+  --danger: #e53935;
+  --danger-foreground: #ffffff;
 
+  --accent: #fe5000;
   --border: #fe5000;
 
   --sidebar: #25282a;
   --sidebar-foreground: #f2f2f2;
+  --sidebar-muted: #cfcfcf;
   --sidebar-primary: #fe5000;
   --sidebar-border: #fe5000;
 
