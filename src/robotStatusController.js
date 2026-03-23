@@ -1,24 +1,48 @@
-import { subscribeRobotStatus } from "./ros.js";
+/**
+ * Controller de Status do Robô (Vanilla JS)
+ * Responsável por gerenciar os dados técnicos do sistema.
+ */
 
-let _status = null;
-let _unsubscribe = null;
+const _robotState = {
+  cpu: "12%",
+  memory: "1.1 GB",
+  wifi: "FBOT_WORK_5G",
+  nodes: 7,
+  topics: 34,
+  battery: "92%",
+};
 
-export function getStatus() {
-  return _status;
-}
+const robotStatusController = {
+  // Retorna o uso de CPU
+  getCpu: function () {
+    return _robotState.cpu;
+  },
 
-export function startStatusMonitor(onChange) {
-  if (_unsubscribe) return;
+  // Retorna o uso de Memória RAM
+  getMemory: function () {
+    return _robotState.memory;
+  },
 
-  _unsubscribe = subscribeRobotStatus((data) => {
-    _status = data;
-    if (onChange) onChange(data);
-  });
-}
+  // Retorna a intensidade do sinal Wi-Fi
+  getWifi: function () {
+    return _robotState.wifi;
+  },
 
-export function stopStatusMonitor() {
-  if (_unsubscribe) {
-    _unsubscribe();
-    _unsubscribe = null;
-  }
-}
+  // Retorna a contagem de Nodos ROS ativos
+  getNodesCount: function () {
+    return _robotState.nodes;
+  },
+
+  // Retorna a contagem de Tópicos ROS ativos
+  getTopicsCount: function () {
+    return _robotState.topics;
+  },
+
+  // Retorna o nível da bateria
+  getBattery: function () {
+    return _robotState.battery;
+  },
+};
+
+// Torna o objeto acessível globalmente para outros scripts (como o main.js)
+window.robotStatusController = robotStatusController;
