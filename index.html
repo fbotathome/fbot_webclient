@@ -2,13 +2,11 @@
 <html>
     <head>
         <meta charset="UTF-8" />
-
         <link rel="stylesheet" href="css/theme.css" />
         <link rel="stylesheet" href="css/base.css" />
         <link rel="stylesheet" href="css/layout.css" />
         <link rel="stylesheet" href="css/sidebar.css" />
         <link rel="stylesheet" href="css/dashboard.css" />
-
         <title>Web Client</title>
     </head>
 
@@ -21,50 +19,39 @@
                 </div>
 
                 <div class="menu">
-                    <a href="#" class="active" data-page="dashboard">
-                        <img
-                            src="assets/sidebar/grid.svg"
-                            alt=""
-                            class="menu-icon"
-                        />
+                    <a
+                        href="#"
+                        class="active"
+                        onclick="navegar(event, 'dashboard')"
+                    >
+                        <img src="assets/sidebar/grid.svg" class="menu-icon" />
                         <span>Dashboard</span>
                     </a>
-                    <a href="#" data-page="navigation">
-                        <img
-                            src="assets/sidebar/move.svg"
-                            alt=""
-                            class="menu-icon"
-                        />
+                    <a href="#" onclick="navegar(event, 'navigation')">
+                        <img src="assets/sidebar/move.svg" class="menu-icon" />
                         <span>Navigation</span>
                     </a>
-                    <a href="#" data-page="vision">
+                    <a href="#" onclick="navegar(event, 'vision')">
                         <img
                             src="assets/sidebar/camera.svg"
-                            alt=""
                             class="menu-icon"
                         />
                         <span>Vision</span>
                     </a>
-                    <a href="#" data-page="speech">
+                    <a href="#" onclick="navegar(event, 'speech')">
                         <img
                             src="assets/sidebar/message-square.svg"
-                            alt=""
                             class="menu-icon"
                         />
                         <span>Speech / TTS</span>
                     </a>
-                    <a href="#" data-page="emotions">
-                        <img
-                            src="assets/sidebar/smile.svg"
-                            alt=""
-                            class="menu-icon"
-                        />
+                    <a href="#" onclick="navegar(event, 'emotions')">
+                        <img src="assets/sidebar/smile.svg" class="menu-icon" />
                         <span>Emotions</span>
                     </a>
-                    <a href="#" data-page="manipulator">
+                    <a href="#" onclick="navegar(event, 'manipulator')">
                         <img
                             src="assets/sidebar/activity.svg"
-                            alt=""
                             class="menu-icon"
                         />
                         <span>Manipulator</span>
@@ -83,56 +70,51 @@
                             <h3 class="card-title">
                                 <img
                                     src="assets/cards/cpu.svg"
-                                    alt=""
                                     class="card-icon"
                                 />
                                 <span>CPU</span>
                             </h3>
-                            <p class="card-value">--</p>
+                            <p class="card-value" id="cpu-val">--</p>
                         </div>
                         <div class="card">
                             <h3 class="card-title">
                                 <img
                                     src="assets/cards/hard-drive.svg"
-                                    alt=""
                                     class="card-icon"
                                 />
                                 <span>Memory</span>
                             </h3>
-                            <p class="card-value">--</p>
+                            <p class="card-value" id="memory-val">--</p>
                         </div>
                         <div class="card">
                             <h3 class="card-title">
                                 <img
                                     src="assets/cards/wifi.svg"
-                                    alt=""
                                     class="card-icon"
                                 />
                                 <span>Network</span>
                             </h3>
-                            <p class="card-value">--</p>
+                            <p class="card-value" id="wifi-val">--</p>
                         </div>
                         <div class="card">
                             <h3 class="card-title">
                                 <img
                                     src="assets/cards/radio.svg"
-                                    alt=""
                                     class="card-icon"
                                 />
                                 <span>Nodes</span>
                             </h3>
-                            <p class="card-value">--</p>
+                            <p class="card-value" id="nodes-val">--</p>
                         </div>
                         <div class="card">
                             <h3 class="card-title">
                                 <img
                                     src="assets/cards/list.svg"
-                                    alt=""
                                     class="card-icon"
                                 />
                                 <span>Topics</span>
                             </h3>
-                            <p class="card-value">--</p>
+                            <p class="card-value" id="topics-val">--</p>
                         </div>
                     </section>
 
@@ -148,13 +130,11 @@
                                 <p>Status: --</p>
                                 <button>Shutdown</button>
                             </div>
-
                             <div class="power-card">
                                 <h3>NUC</h3>
                                 <p>Status: ---</p>
                                 <button>Shutdown</button>
                             </div>
-
                             <div class="power-card">
                                 <h3>Full System</h3>
                                 <p>Shutdown everything</p>
@@ -167,7 +147,9 @@
                 <section id="page-navigation" class="page">
                     <h2>Navigation</h2>
                 </section>
-                <section id="page-vision" class="page"><h2>Vision</h2></section>
+                <section id="page-vision" class="page">
+                    <h2>Vision</h2>
+                </section>
                 <section id="page-speech" class="page">
                     <h2>Speech / TTS</h2>
                 </section>
@@ -187,7 +169,13 @@
             .page.active {
                 display: contents;
             }
+            .menu a {
+                cursor: pointer;
+            }
         </style>
-        <script type="module" src="main.js"></script>
+
+        <script src="robotStatusController.js"></script>
+        <script src="router.js"></script>
+        <script src="main.js"></script>
     </body>
 </html>
