@@ -25,26 +25,28 @@
 
         <div class="menu">
             <a href="#" class="active">
+            <a href="#" class="active" data-page="dashboard">
                 <img src="assets/sidebar/grid.svg" alt="" class="menu-icon">
                 <span>Dashboard</span>
             </a>
             <a href="#">
+            <a href="#" data-page="navigation">
                 <img src="assets/sidebar/move.svg" alt="" class="menu-icon">
                 <span>Navigation</span>
             </a>
-            <a href="#">
+            <a href="#" data-page="vision">
                 <img src="assets/sidebar/camera.svg" alt="" class="menu-icon">
                 <span>Vision</span>
             </a>
-            <a href="#">
+            <a href="#" data-page="speech">
                 <img src="assets/sidebar/message-square.svg" alt="" class="menu-icon">
                 <span>Speech / TTS</span>
             </a>
-            <a href="#">
+            <a href="#" data-page="emotions">
                 <img src="assets/sidebar/smile.svg" alt="" class="menu-icon">
                 <span>Emotions</span>
             </a>
-            <a href="#">
+            <a href="#" data-page="manipulator">
                 <img src="assets/sidebar/activity.svg" alt="" class="menu-icon">
                 <span>Manipulator</span>
             </a>
@@ -56,9 +58,10 @@
     <main class="main">
 
         <header class="header">
-            <h1>Dashboard</h1>
+            <h1 id="page-title">Dashboard</h1>
         </header>
 
+        <section id="page-dashboard" class="page active">
         <section class="cards">
             <div class="card">
                 <h3 class="card-title">
@@ -123,8 +126,18 @@
                 </div>
             </div>
         </section>
+        </section>
+
+        <section id="page-navigation" class="page"><h2>Navigation</h2></section>
+        <section id="page-vision" class="page"><h2>Vision</h2></section>
+        <section id="page-speech" class="page"><h2>Speech / TTS</h2></section>
+        <section id="page-emotions" class="page"><h2>Emotions</h2></section>
+        <section id="page-manipulator" class="page"><h2>Manipulator</h2></section>
     </main>
 </div>
+
+<style>.page{display:none}.page.active{display:contents}</style>
+<script type="module" src="main.js"></script>
 
 </body>
 </html>
