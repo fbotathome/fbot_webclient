@@ -19,41 +19,28 @@
                 </div>
 
                 <div class="menu">
-                    <a
-                        href="#"
-                        class="active"
-                        onclick="navegar(event, 'dashboard')"
-                    >
+                    <a href="#" class="active" data-page="dashboard">
                         <img src="assets/sidebar/grid.svg" class="menu-icon" />
                         <span>Dashboard</span>
                     </a>
-                    <a href="#" onclick="navegar(event, 'navigation')">
+                    <a href="#" data-page="navigation">
                         <img src="assets/sidebar/move.svg" class="menu-icon" />
                         <span>Navigation</span>
                     </a>
-                    <a href="#" onclick="navegar(event, 'vision')">
-                        <img
-                            src="assets/sidebar/camera.svg"
-                            class="menu-icon"
-                        />
+                    <a href="#" data-page="vision">
+                        <img src="assets/sidebar/camera.svg" class="menu-icon" />
                         <span>Vision</span>
                     </a>
-                    <a href="#" onclick="navegar(event, 'speech')">
-                        <img
-                            src="assets/sidebar/message-square.svg"
-                            class="menu-icon"
-                        />
+                    <a href="#" data-page="speech">
+                        <img src="assets/sidebar/message-square.svg" class="menu-icon" />
                         <span>Speech / TTS</span>
                     </a>
-                    <a href="#" onclick="navegar(event, 'emotions')">
+                    <a href="#" data-page="emotions">
                         <img src="assets/sidebar/smile.svg" class="menu-icon" />
                         <span>Emotions</span>
                     </a>
-                    <a href="#" onclick="navegar(event, 'manipulator')">
-                        <img
-                            src="assets/sidebar/activity.svg"
-                            class="menu-icon"
-                        />
+                    <a href="#" data-page="manipulator">
+                        <img src="assets/sidebar/activity.svg" class="menu-icon" />
                         <span>Manipulator</span>
                     </a>
                 </div>
@@ -174,8 +161,7 @@
             }
         </style>
 
-        <script src="src/robotStatusController.js"></script>
-        <script src="router.js"></script>
-        <script src="main.js"></script>
+        <script src="lib/roslib.min.js"></script>
+        <script type="module" src="src/main.js"></script>
     </body>
 </html>

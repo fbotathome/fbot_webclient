@@ -1,4 +1,4 @@
-import { publishFaceEmotion } from "./ros.js";
+import { publishFaceEmotion } from "../ros/connection.js";
 
 export const EMOTIONS = Object.freeze([
   "happy",

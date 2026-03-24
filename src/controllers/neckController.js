@@ -1,5 +1,4 @@
-import { publishUpdateNeck } from "./ros.js";
-
+import { publishUpdateNeck } from "../ros/connection.js";
 export const NECK_UP_LIMIT = 190.0;
 export const NECK_DOWN_LIMIT = 150.0;
 export const NECK_RIGHT_LIMIT = 240.0;

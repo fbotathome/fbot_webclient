@@ -1,4 +1,4 @@
-import { callSaySomething } from "./ros.js";
+import { callSaySomething } from "../ros/connection.js";
 
 const SUPPORTED_LANGS = Object.freeze(["en"]);
 
@@ -14,7 +14,9 @@ export async function speech(text, lang = "en") {
   }
 
   if (!SUPPORTED_LANGS.includes(lang)) {
-    throw new Error(`Unsupported language: ${lang}. Supported: ${SUPPORTED_LANGS.join(", ")}`);
+    throw new Error(
+      `Unsupported language: ${lang}. Supported: ${SUPPORTED_LANGS.join(", ")}`,
+    );
   }
 
   if (_isSpeaking) {
