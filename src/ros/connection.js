@@ -2,6 +2,10 @@ import CONFIG from "../config.js";
 
 export const ros = new ROSLIB.Ros({ url: CONFIG.rosbridgeUrl });
 
+setTimeout(() => {
+  ros.connect(CONFIG.rosbridgeUrl);
+}, 300);
+
 const _publishers = new Set();
 const _subscribers = new Map();
 let _hasConnectedOnce = false;

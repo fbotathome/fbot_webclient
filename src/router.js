@@ -1,4 +1,29 @@
+import { initDashboard, destroyDashboard } from "./pages/dashboardPage.js";
+import {
+  initManipulator,
+  destroyManipulator,
+} from "./pages/manipulatorPage.js";
+
+const pageHandlers = {
+  dashboard: {
+    init: initDashboard,
+    destroy: destroyDashboard,
+  },
+  manipulator: {
+    init: initManipulator,
+    destroy: destroyManipulator,
+  },
+};
+
+let currentPage = null;
+
 function navigate(pageId) {
+  if (currentPage === pageId) return;
+
+  if (currentPage && pageHandlers[currentPage]?.destroy) {
+    pageHandlers[currentPage].destroy();
+  }
+
   const pages = document.querySelectorAll(".page");
   pages.forEach((p) => p.classList.remove("active"));
 
@@ -16,6 +41,12 @@ function navigate(pageId) {
   if (title) {
     title.textContent = pageId.charAt(0).toUpperCase() + pageId.slice(1);
   }
+
+  if (pageHandlers[pageId]?.init) {
+    pageHandlers[pageId].init();
+  }
+
+  currentPage = pageId;
 }
 
 export function initRouter() {
@@ -29,4 +60,11 @@ export function initRouter() {
     e.preventDefault();
     navigate(link.dataset.page);
   });
+
+  const firstActiveLink = document.querySelector(".menu a.active");
+  if (firstActiveLink) {
+    navigate(firstActiveLink.dataset.page);
+  } else {
+    navigate("dashboard");
+  }
 }
