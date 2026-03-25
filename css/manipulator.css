@@ -1,0 +1,14 @@
+.manipulator-wrapper {
+    position: relative;
+    width: 100%;
+    height: 70vh;
+    background: #1e2022;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #fe5000;
+}
+
+.manipulator-canvas-container {
+    width: 100%;
+    height: 100%;
+}

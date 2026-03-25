@@ -7,7 +7,18 @@
         <link rel="stylesheet" href="css/layout.css" />
         <link rel="stylesheet" href="css/sidebar.css" />
         <link rel="stylesheet" href="css/dashboard.css" />
+        <link rel="stylesheet" href="css/manipulator.css" />
         <title>Web Client</title>
+        <link rel="icon" type="image/svg+xml" href="assets/logo/Logotipo.svg" />
+        <script type="importmap">
+        {
+          "imports": {
+            "three": "./lib/three.module.js",
+            "three/examples/jsm/": "./lib/",
+            "urdf-loader": "./lib/urdf-loader/URDFLoader.js"
+          }
+        }
+        </script>
     </head>
 
     <body>
@@ -144,7 +155,9 @@
                     <h2>Emotions</h2>
                 </section>
                 <section id="page-manipulator" class="page">
-                    <h2>Manipulator</h2>
+                    <div id="manipulator-container" class="manipulator-wrapper">
+                        <div id="manipulator-canvas" class="manipulator-canvas-container"></div>
+                    </div>
                 </section>
             </main>
         </div>
