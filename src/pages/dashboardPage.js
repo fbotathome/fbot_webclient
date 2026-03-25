@@ -36,7 +36,7 @@ function _updateCards(data) {
 export function initDashboard() {
   _cacheElements();
   startStatusMonitor(_updateCards);
-  console.log("[dashboard] Monitoramento de status iniciado.");
+  console.log("[dashboard] Status monitoring started.");
 }
 
 export function destroyDashboard() {

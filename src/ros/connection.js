@@ -53,6 +53,10 @@ export const TOPICS = Object.freeze({
     name: "/fbot_webclient/robot_status",
     type: "std_msgs/String",
   },
+  jointStates: {
+    name: "/joint_states",
+    type: "sensor_msgs/JointState",
+  },
 });
 
 export const SERVICES = Object.freeze({
@@ -105,6 +109,14 @@ const _faceEmotion = createPublisher(
 );
 export function publishFaceEmotion(emotion) {
   _faceEmotion.publish(new ROSLIB.Message({ data: emotion }));
+}
+
+const _jointStates = createTopic(
+  TOPICS.jointStates.name,
+  TOPICS.jointStates.type,
+);
+export function subscribeJointStates(callback) {
+  return trackSubscription(_jointStates, callback);
 }
 
 const _robotStatus = createTopic(
