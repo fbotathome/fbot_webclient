@@ -1,8 +1,8 @@
 import { initDashboard, destroyDashboard } from "./pages/dashboardPage.js";
 import {
-  initManipulator,
-  destroyManipulator,
-} from "./pages/manipulatorPage.js";
+  startManipulator,
+  stopManipulator,
+} from "./controllers/manipulatorController.js";
 
 const pageHandlers = {
   dashboard: {
@@ -10,8 +10,8 @@ const pageHandlers = {
     destroy: destroyDashboard,
   },
   manipulator: {
-    init: initManipulator,
-    destroy: destroyManipulator,
+    init: startManipulator,
+    destroy: stopManipulator,
   },
 };
 

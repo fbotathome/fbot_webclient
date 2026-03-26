@@ -2,13 +2,29 @@
     position: relative;
     width: 100%;
     height: 70vh;
-    background: #1e2022;
-    border-radius: 8px;
+    background: var(--card);
+    border-radius: var(--radius);
     overflow: hidden;
-    border: 1px solid #fe5000;
+    border: 1px solid var(--border);
 }
 
 .manipulator-canvas-container {
     width: 100%;
     height: 100%;
+}
+
+.manipulator-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--sidebar-muted);
+    font-size: 0.9rem;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.manipulator-loading--error {
+    color: var(--danger);
 }
