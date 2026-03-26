@@ -14,16 +14,18 @@ class RobotStatusPublisher(Node):
         self.create_timer(1.0, self._publish)
 
     def _publish(self):
+        nodes = self._get_nodes()
+        topics = self._get_topics()
         msg = String()
         msg.data = json.dumps(
             {
                 "cpu": self._get_cpu(),
                 "memory": self._get_memory(),
                 "wifi": self._get_wifi(),
-                "nodes": self._get_nodes(),
-                "nodes_count": len(self._get_nodes()),
-                "topics": self._get_topics(),
-                "topics_count": len(self._get_topics()),
+                "nodes": nodes,
+                "nodes_count": len(nodes),
+                "topics": topics,
+                "topics_count": len(topics),
             }
         )
         try:
