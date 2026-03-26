@@ -1,18 +1,14 @@
 import { initDashboard, destroyDashboard } from "./pages/dashboardPage.js";
 import {
-  startManipulator,
-  stopManipulator,
-} from "./controllers/manipulatorController.js";
+  initManipulator,
+  destroyManipulator,
+} from "./pages/manipulatorPage.js";
+import { initVision, destroyVision } from "./pages/visionPage.js";
 
 const pageHandlers = {
-  dashboard: {
-    init: initDashboard,
-    destroy: destroyDashboard,
-  },
-  manipulator: {
-    init: startManipulator,
-    destroy: stopManipulator,
-  },
+  dashboard: { init: initDashboard, destroy: destroyDashboard },
+  manipulator: { init: initManipulator, destroy: destroyManipulator },
+  vision: { init: initVision, destroy: destroyVision },
 };
 
 let currentPage = null;
