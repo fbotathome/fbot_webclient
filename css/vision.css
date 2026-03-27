@@ -29,7 +29,8 @@
 .vision-card-header .card-icon {
     width: 18px;
     height: 18px;
-    filter: brightness(0) saturate(100%) invert(45%) sepia(90%) saturate(600%) hue-rotate(360deg) brightness(105%);
+    filter: brightness(0) saturate(100%) invert(45%) sepia(90%) saturate(600%)
+        hue-rotate(360deg) brightness(105%);
     /* ~#fe5000 laranja */
 }
 
@@ -71,7 +72,7 @@
     inset: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     border-radius: calc(var(--radius) - 2px);
 }
 
