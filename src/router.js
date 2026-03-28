@@ -5,12 +5,14 @@ import {
 } from "./pages/manipulatorPage.js";
 import { initVision, destroyVision } from "./pages/visionPage.js";
 import { initEmotions, destroyEmotions } from "./pages/emotionsPage.js";
+import { initSpeech, destroySpeech } from "./pages/speechPage.js";
 
 const pageHandlers = {
   dashboard: { init: initDashboard, destroy: destroyDashboard },
   manipulator: { init: initManipulator, destroy: destroyManipulator },
   vision: { init: initVision, destroy: destroyVision },
   emotions: { init: initEmotions, destroy: destroyEmotions },
+  speech: { init: initSpeech, destroy: destroySpeech },
 };
 
 let currentPage = null;
