@@ -48,9 +48,12 @@ class RobotStatusPublisher(Node):
 
     def _get_memory(self):
         mem = psutil.virtual_memory()
+        gib_factor = 1024**3
+
         return {
-            "total_gb": round(mem.total / 1e9, 1),
-            "used_gb": round(mem.used / 1e9, 1),
+            "total_gb": round(mem.total / gib_factor, 1),
+            "available_gb": round(mem.available / gib_factor, 1),
+            "used_gb": round(mem.used / gib_factor, 1),
             "percent": mem.percent,
         }
 
