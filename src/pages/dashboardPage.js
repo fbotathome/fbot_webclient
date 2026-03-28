@@ -1,7 +1,6 @@
-import {
-  startStatusMonitor,
-  stopStatusMonitor,
-} from "../controllers/robotStatusController.js";
+import { startStatusMonitor } from "../controllers/robotStatusController.js";
+
+let _stopMonitor = null;
 
 const _els = {
   cpu: null,
@@ -20,6 +19,7 @@ function _cacheElements() {
 }
 
 function _formatWifi(wifi) {
+  if (!wifi) return "N/A";
   if (!wifi.ssid) return wifi.type || "Disconnected";
   return wifi.signal != null ? `${wifi.ssid} (${wifi.signal}%)` : wifi.ssid;
 }
@@ -35,10 +35,14 @@ function _updateCards(data) {
 
 export function initDashboard() {
   _cacheElements();
-  startStatusMonitor(_updateCards);
+  _stopMonitor = startStatusMonitor(_updateCards);
   console.log("[dashboard] Status monitoring started.");
 }
 
 export function destroyDashboard() {
-  stopStatusMonitor();
+  if (_stopMonitor) {
+    _stopMonitor();
+    _stopMonitor = null;
+    console.log("[dashboard] Status monitoring stopped.");
+  }
 }
