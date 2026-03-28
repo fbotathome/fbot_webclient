@@ -4,11 +4,13 @@ import {
   destroyManipulator,
 } from "./pages/manipulatorPage.js";
 import { initVision, destroyVision } from "./pages/visionPage.js";
+import { initEmotions, destroyEmotions } from "./pages/emotionsPage.js";
 
 const pageHandlers = {
   dashboard: { init: initDashboard, destroy: destroyDashboard },
   manipulator: { init: initManipulator, destroy: destroyManipulator },
   vision: { init: initVision, destroy: destroyVision },
+  emotions: { init: initEmotions, destroy: destroyEmotions },
 };
 
 let currentPage = null;
