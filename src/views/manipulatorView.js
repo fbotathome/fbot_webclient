@@ -77,18 +77,19 @@ function _createLoadingIndicator(container) {
   return el;
 }
 
-export function updateJoints(jointData, onJointUpdate) {
-  if (!robot) return;
+export function updateJoints(jointData) {
+  const angles = {};
+
+  if (!robot) return angles;
 
   for (let i = 0; i < jointData.name.length; i++) {
     const name = jointData.name[i];
     const angle = jointData.position[i];
     robot.setJointValue(name, angle);
-
-    if (onJointUpdate) {
-      onJointUpdate(name, ((angle * 180) / Math.PI).toFixed(1) + "°");
-    }
+    angles[name] = ((angle * 180) / Math.PI).toFixed(1) + "°";
   }
+
+  return angles;
 }
 
 export function startAnimation() {
