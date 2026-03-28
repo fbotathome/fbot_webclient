@@ -111,6 +111,15 @@ export function publishFaceEmotion(emotion) {
   _faceEmotion.publish(new ROSLIB.Message({ data: emotion }));
 }
 
+const _faceEmotionSub = createTopic(
+  TOPICS.faceEmotion.name,
+  TOPICS.faceEmotion.type,
+);
+export function subscribeToFaceEmotion(callback) {
+  const wrapper = (msg) => callback(msg.data);
+  return trackSubscription(_faceEmotionSub, wrapper);
+}
+
 const _jointStates = createTopic(
   TOPICS.jointStates.name,
   TOPICS.jointStates.type,
