@@ -9,6 +9,7 @@
         <link rel="stylesheet" href="css/dashboard.css" />
         <link rel="stylesheet" href="css/manipulator.css" />
         <link rel="stylesheet" href="css/vision.css" />
+        <link rel="stylesheet" href="css/emotions.css" />
         <title>Web Client</title>
         <link rel="icon" type="image/svg+xml" href="assets/logo/Logotipo.svg" />
         <script type="importmap">
@@ -67,50 +68,35 @@
                     <section class="cards">
                         <div class="card">
                             <h3 class="card-title">
-                                <img
-                                    src="assets/cards/cpu.svg"
-                                    class="card-icon"
-                                />
+                                <img src="assets/cards/cpu.svg" class="card-icon" />
                                 <span>CPU</span>
                             </h3>
                             <p class="card-value" id="cpu-val">--</p>
                         </div>
                         <div class="card">
                             <h3 class="card-title">
-                                <img
-                                    src="assets/cards/hard-drive.svg"
-                                    class="card-icon"
-                                />
+                                <img src="assets/cards/hard-drive.svg" class="card-icon" />
                                 <span>Memory</span>
                             </h3>
                             <p class="card-value" id="memory-val">--</p>
                         </div>
                         <div class="card">
                             <h3 class="card-title">
-                                <img
-                                    src="assets/cards/wifi.svg"
-                                    class="card-icon"
-                                />
+                                <img src="assets/cards/wifi.svg" class="card-icon" />
                                 <span>Network</span>
                             </h3>
                             <p class="card-value" id="wifi-val">--</p>
                         </div>
                         <div class="card">
                             <h3 class="card-title">
-                                <img
-                                    src="assets/cards/radio.svg"
-                                    class="card-icon"
-                                />
+                                <img src="assets/cards/radio.svg" class="card-icon" />
                                 <span>Nodes</span>
                             </h3>
                             <p class="card-value" id="nodes-val">--</p>
                         </div>
                         <div class="card">
                             <h3 class="card-title">
-                                <img
-                                    src="assets/cards/list.svg"
-                                    class="card-icon"
-                                />
+                                <img src="assets/cards/list.svg" class="card-icon" />
                                 <span>Topics</span>
                             </h3>
                             <p class="card-value" id="topics-val">--</p>
@@ -182,9 +168,49 @@
                     </section>
                 </section>
 
-
                 <section id="page-emotions" class="page">
-                    <h2>Emotions</h2>
+                    <section class="emotions-current-card">
+                        <h2 class="emotions-section-title">Current Emotion</h2>
+                        <div class="emotions-preview">
+                            <img src="assets/emotions/angry.jpeg" alt="Current Emotion" class="emotions-preview-img" />
+                        </div>
+                        <p class="emotions-current-label">Angry</p>
+                    </section>
+
+                    <section class="emotions-select-card">
+                        <h2 class="emotions-section-title">Select Emotion</h2>
+                        <div class="emotions-grid">
+                            <div class="emotion-item selected">
+                                <img src="assets/emotions/happy.jpeg" alt="Happy" />
+                                <span>Happy</span>
+                            </div>
+                            <div class="emotion-item">
+                                <img src="assets/emotions/angry.jpeg" alt="Angry" />
+                                <span>Angry</span>
+                            </div>
+                            <div class="emotion-item">
+                                <img src="assets/emotions/surprised.jpeg" alt="Surprised" />
+                                <span>Surprised</span>
+                            </div>
+                            <div class="emotion-item">
+                                <img src="assets/emotions/sleepy.jpeg" alt="Sleepy" />
+                                <span>Sleepy</span>
+                            </div>
+                            <div class="emotion-item">
+                                <img src="assets/emotions/suspicious.jpeg" alt="Suspicious" />
+                                <span>Suspicious</span>
+                            </div>
+                            <div class="emotion-item">
+                                <img src="assets/emotions/neutral.jpeg" alt="Neutral" />
+                                <span>Neutral</span>
+                            </div>
+                            <div class="emotion-item">
+                                <img src="assets/emotions/sad.jpeg" alt="Sad" />
+                                <span>Sad</span>
+                            </div>
+                        </div>
+                        <button class="emotions-apply-btn">Apply Emotion</button>
+                    </section>
                 </section>
 
                 <section id="page-speech" class="page">
@@ -204,6 +230,9 @@
                 display: none;
             }
             .page.active {
+                display: block;
+            }
+            #page-dashboard.active {
                 display: contents;
             }
             .menu a {
