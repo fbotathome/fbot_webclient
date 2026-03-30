@@ -12,13 +12,13 @@
         <title>Web Client</title>
         <link rel="icon" type="image/svg+xml" href="assets/logo/Logotipo.svg" />
         <script type="importmap">
-        {
-          "imports": {
-            "three": "./lib/three.module.js",
-            "three/examples/jsm/": "./lib/",
-            "urdf-loader": "./lib/urdf-loader/URDFLoader.js"
-          }
-        }
+            {
+                "imports": {
+                    "three": "./lib/three.module.js",
+                    "three/examples/jsm/": "./lib/",
+                    "urdf-loader": "./lib/urdf-loader/URDFLoader.js"
+                }
+            }
         </script>
     </head>
 
@@ -40,11 +40,17 @@
                         <span>Navigation</span>
                     </a>
                     <a href="#" data-page="vision">
-                        <img src="assets/sidebar/camera.svg" class="menu-icon" />
+                        <img
+                            src="assets/sidebar/camera.svg"
+                            class="menu-icon"
+                        />
                         <span>Vision</span>
                     </a>
                     <a href="#" data-page="speech">
-                        <img src="assets/sidebar/message-square.svg" class="menu-icon" />
+                        <img
+                            src="assets/sidebar/message-square.svg"
+                            class="menu-icon"
+                        />
                         <span>Speech / TTS</span>
                     </a>
                     <a href="#" data-page="emotions">
@@ -52,7 +58,10 @@
                         <span>Emotions</span>
                     </a>
                     <a href="#" data-page="manipulator">
-                        <img src="assets/sidebar/activity.svg" class="menu-icon" />
+                        <img
+                            src="assets/sidebar/activity.svg"
+                            class="menu-icon"
+                        />
                         <span>Manipulator</span>
                     </a>
                 </div>
@@ -151,49 +160,107 @@
                     <section class="vision-grid">
                         <div class="vision-card" id="card-rgb">
                             <div class="vision-card-header">
-                                <img src="assets/vision/camera.svg" alt="" class="card-icon" />
+                                <img
+                                    src="assets/vision/camera.svg"
+                                    alt=""
+                                    class="card-icon"
+                                />
                                 <span>RGB Camera</span>
                             </div>
                             <div class="vision-feed" id="feed-rgb">
-                                <img src="assets/vision/camera.svg" alt="" class="feed-placeholder-icon" />
-                                <span class="feed-placeholder-label">Camera Feed</span>
-                                <img id="img-rgb" class="feed-img" style="display:none;" />
+                                <img
+                                    src="assets/vision/camera.svg"
+                                    alt=""
+                                    class="feed-placeholder-icon"
+                                />
+                                <span class="feed-placeholder-label"
+                                    >Camera Feed</span
+                                >
+                                <img
+                                    id="img-rgb"
+                                    class="feed-img"
+                                    style="display: none"
+                                />
                             </div>
                             <div class="vision-card-footer">
                                 <span id="rgb-resolution">--</span>
-                                <span id="rgb-fps" class="vision-accent">-- FPS</span>
+                                <span id="rgb-fps" class="vision-accent"
+                                    >-- FPS</span
+                                >
                             </div>
                         </div>
 
                         <div class="vision-card" id="card-detection">
                             <div class="vision-card-header">
-                                <img src="assets/vision/eye.svg" alt="" class="card-icon" />
+                                <img
+                                    src="assets/vision/eye.svg"
+                                    alt=""
+                                    class="card-icon"
+                                />
                                 <span>Object Detection</span>
                             </div>
                             <div class="vision-feed" id="feed-detection">
-                                <img src="assets/vision/eye.svg" alt="" class="card-icon" />
-                                <img id="img-detection" class="feed-img" style="display:none;" />
+                                <img
+                                    src="assets/vision/eye.svg"
+                                    alt=""
+                                    class="card-icon"
+                                />
+                                <img
+                                    id="img-detection"
+                                    class="feed-img"
+                                    style="display: none"
+                                />
                             </div>
                             <div class="vision-card-footer">
                                 <span id="detection-model">Model: --</span>
-                                <span id="detection-status" class="vision-inactive">Inactive</span>
+                                <span
+                                    id="detection-status"
+                                    class="vision-inactive"
+                                    >Inactive</span
+                                >
                             </div>
                         </div>
                     </section>
                 </section>
-
 
                 <section id="page-emotions" class="page">
                     <h2>Emotions</h2>
                 </section>
 
                 <section id="page-speech" class="page">
-                    <h2>Speech / TTS</h2>
+                    <section class="power">
+                        <h2>Quick lines</h2>
+                        <div class="power-grid">
+                            <div class="power-card">
+                                <h3>Introduction</h3>
+                                <button onclick="RobotSpeechAction('intro')">
+                                    Play
+                                </button>
+                            </div>
+
+                            <div class="power-card">
+                                <h3>About FBOT</h3>
+                                <button onclick="RobotSpeechAction('fbot')">
+                                    Play
+                                </button>
+                            </div>
+
+                            <div class="power-card">
+                                <h3>About FURG</h3>
+                                <button onclick="RobotSpeechAction('furg')">
+                                    Play
+                                </button>
+                            </div>
+                        </div>
+                    </section>
                 </section>
 
                 <section id="page-manipulator" class="page">
                     <div id="manipulator-container" class="manipulator-wrapper">
-                        <div id="manipulator-canvas" class="manipulator-canvas-container"></div>
+                        <div
+                            id="manipulator-canvas"
+                            class="manipulator-canvas-container"
+                        ></div>
                     </div>
                 </section>
             </main>
