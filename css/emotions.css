@@ -44,7 +44,7 @@
     margin-bottom: 24px;
 }
 
-.emotion-item {
+.emotion-card {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -55,17 +55,19 @@
     border: 2px solid transparent;
     transition: border-color 0.2s;
     position: relative;
+    background: none;
+    font-family: inherit;
 }
 
-.emotion-item:hover {
+.emotion-card:hover {
     border-color: var(--border);
 }
 
-.emotion-item.selected {
+.emotion-card.active {
     border-color: var(--primary);
 }
 
-.emotion-item.selected::after {
+.emotion-card.active::after {
     content: "";
     position: absolute;
     top: 6px;
@@ -76,7 +78,7 @@
     border-radius: 50%;
 }
 
-.emotion-item img {
+.emotion-card img {
     width: 100%;
     aspect-ratio: 1;
     object-fit: cover;
@@ -84,7 +86,7 @@
     background: var(--card-secondary);
 }
 
-.emotion-item span {
+.emotion-card span {
     font-size: 12px;
     color: var(--sidebar-muted);
     text-align: center;
