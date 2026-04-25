@@ -229,28 +229,42 @@
 
                 <section id="page-speech" class="page">
                     <section class="power">
+                        <h2>Custom speech</h2>
+                        <form id="custom-speech-form" class="speech-form">
+                            <textarea
+                                id="custom-speech-text"
+                                class="speech-input"
+                                rows="3"
+                                placeholder="Type a phrase for Boris to say..."
+                                required
+                            ></textarea>
+                            <div class="speech-form-row">
+                                <label for="custom-speech-lang" class="speech-lang-label">
+                                    Language
+                                </label>
+                                <select id="custom-speech-lang" class="speech-lang-select">
+                                    <option value="en" selected>English</option>
+                                    <option value="pt">Português</option>
+                                </select>
+                                <button type="submit" class="speech-submit">Send</button>
+                            </div>
+                        </form>
+                    </section>
+
+                    <section class="power">
                         <h2>Quick lines</h2>
                         <div class="power-grid">
-                            <div class="power-card">
-                                <h3>Introduction</h3>
-                                <button onclick="RobotSpeechAction('intro')">
-                                    Play
-                                </button>
-                            </div>
+                            <button class="power-card" data-speech-key="intro">
+                                Hello! I am Boris.
+                            </button>
 
-                            <div class="power-card">
-                                <h3>About FBOT</h3>
-                                <button onclick="RobotSpeechAction('fbot')">
-                                    Play
-                                </button>
-                            </div>
+                            <button class="power-card" data-speech-key="fbot">
+                                FBOT is an open-source robotics project developed to compete in robotics competitions around the world.
+                            </button>
 
-                            <div class="power-card">
-                                <h3>About FURG</h3>
-                                <button onclick="RobotSpeechAction('furg')">
-                                    Play
-                                </button>
-                            </div>
+                            <button class="power-card" data-speech-key="furg">
+                                FURG is a leader in technology and marine studies.
+                            </button>
                         </div>
                     </section>
                 </section>
