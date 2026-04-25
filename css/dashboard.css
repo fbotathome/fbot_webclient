@@ -81,3 +81,98 @@
   font-weight: bold;
   cursor: pointer;
 }
+
+button.power-card {
+  border: none;
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.05s ease;
+}
+
+button.power-card:hover:not(:disabled) {
+  background: var(--card);
+}
+
+button.power-card:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+button.power-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+button.power-card.speaking-mode {
+  outline: 2px solid var(--danger);
+}
+
+#page-speech .power + .power {
+  margin-top: 20px;
+}
+
+.speech-form {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.speech-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card-secondary);
+  color: inherit;
+  font: inherit;
+  font-size: 15px;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.speech-input:focus {
+  outline: 2px solid var(--danger);
+  outline-offset: 1px;
+}
+
+.speech-form-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.speech-lang-label {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.speech-lang-select {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-secondary);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.speech-submit {
+  margin-left: auto;
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
+  background: var(--danger);
+  color: var(--danger-foreground);
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.speech-submit:disabled,
+.speech-input:disabled,
+.speech-lang-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
