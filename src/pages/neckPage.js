@@ -12,14 +12,14 @@ let _applyBtn = null;
 let _resetBtn = null;
 let _statusEl = null;
 let _abortController = null;
-let _activeTimers = new Set();
+let _activeTimers = new Map();
 
 function _scheduleTimer(fn, ms) {
   const id = setTimeout(() => {
     _activeTimers.delete(id);
     fn();
   }, ms);
-  _activeTimers.add(id);
+  _activeTimers.set(id, fn);
   return id;
 }
 
@@ -120,7 +120,12 @@ export function destroyNeck() {
     _abortController.abort();
     _abortController = null;
   }
-  _activeTimers.forEach((id) => clearTimeout(id));
+  _activeTimers.forEach((fn, id) => {
+    clearTimeout(id);
+    try {
+      fn();
+    } catch (_) {}
+  });
   _activeTimers.clear();
   _panSlider = null;
   _tiltSlider = null;

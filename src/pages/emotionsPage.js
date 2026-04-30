@@ -13,14 +13,14 @@ let _selectedEmotion = null;
 let _unsubscribe = null;
 let _unsubscribeRos = null;
 let _abortController = null;
-let _activeTimers = new Set();
+let _activeTimers = new Map();
 
 function _scheduleTimer(fn, ms) {
   const id = setTimeout(() => {
     _activeTimers.delete(id);
     fn();
   }, ms);
-  _activeTimers.add(id);
+  _activeTimers.set(id, fn);
   return id;
 }
 
@@ -122,7 +122,12 @@ export function destroyEmotions() {
     _unsubscribe();
     _unsubscribe = null;
   }
-  _activeTimers.forEach((id) => clearTimeout(id));
+  _activeTimers.forEach((fn, id) => {
+    clearTimeout(id);
+    try {
+      fn();
+    } catch (_) {}
+  });
   _activeTimers.clear();
   destroyNeck();
   _cards = null;
