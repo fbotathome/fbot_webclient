@@ -102,9 +102,61 @@
     font-size: 16px;
     font-weight: 700;
     cursor: pointer;
-    transition: opacity 0.2s;
+    position: relative;
+    overflow: hidden;
+    transition:
+        background-color 0.25s ease,
+        color 0.25s ease,
+        transform 0.15s ease,
+        opacity 0.2s ease;
 }
 
 .emotions-apply-btn:hover {
     opacity: 0.85;
+}
+
+.emotions-apply-btn:active {
+    transform: scale(0.98);
+}
+
+.emotions-apply-btn.emotions-btn-success {
+    background: #16a34a;
+    color: #fff;
+    pointer-events: none;
+}
+
+.emotions-apply-btn.emotions-btn-success .emotions-btn-label::before {
+    content: "✓ ";
+    font-weight: 700;
+}
+
+.emotions-status {
+    margin-top: 14px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--sidebar-muted);
+    min-height: 18px;
+    transition: color 0.25s ease;
+}
+
+.emotions-status.emotions-status-flash {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.emotion-card.emotion-card-pulse {
+    animation: emotion-card-pulse 0.5s ease-out;
+}
+
+@keyframes emotion-card-pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.06);
+        box-shadow: 0 0 18px var(--primary);
+    }
+    100% {
+        transform: scale(1);
+    }
 }

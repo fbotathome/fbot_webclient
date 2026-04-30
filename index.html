@@ -10,6 +10,7 @@
         <link rel="stylesheet" href="css/manipulator.css" />
         <link rel="stylesheet" href="css/vision.css" />
         <link rel="stylesheet" href="css/emotions.css" />
+        <link rel="stylesheet" href="css/neck.css" />
         <title>Web Client</title>
         <link rel="icon" type="image/svg+xml" href="assets/logo/Logotipo.svg" />
         <script type="importmap">
@@ -276,8 +277,86 @@
                             </button>
                         </div>
                         <button class="emotions-apply-btn">
-                            Apply Emotion
+                            <span class="emotions-btn-label">Apply Emotion</span>
                         </button>
+                        <p
+                            class="emotions-status"
+                            id="emotions-status"
+                            aria-live="polite"
+                        >
+                            No emotion applied yet
+                        </p>
+                    </section>
+
+                    <section class="neck-control-card">
+                        <h2 class="neck-section-title">Neck Control</h2>
+                        <div class="neck-controls">
+                            <div class="neck-slider-group">
+                                <label
+                                    for="neck-pan-slider"
+                                    class="neck-slider-label"
+                                >
+                                    <span>Pan</span>
+                                    <span
+                                        class="neck-slider-value"
+                                        id="neck-pan-value"
+                                        >180</span
+                                    >
+                                </label>
+                                <input
+                                    type="range"
+                                    id="neck-pan-slider"
+                                    class="neck-slider"
+                                    min="120"
+                                    max="240"
+                                    step="1"
+                                    value="180"
+                                />
+                                <div class="neck-slider-range">
+                                    <span>Left (120)</span>
+                                    <span>Right (240)</span>
+                                </div>
+                            </div>
+                            <div class="neck-slider-group">
+                                <label
+                                    for="neck-tilt-slider"
+                                    class="neck-slider-label"
+                                >
+                                    <span>Tilt</span>
+                                    <span
+                                        class="neck-slider-value"
+                                        id="neck-tilt-value"
+                                        >180</span
+                                    >
+                                </label>
+                                <input
+                                    type="range"
+                                    id="neck-tilt-slider"
+                                    class="neck-slider"
+                                    min="150"
+                                    max="190"
+                                    step="1"
+                                    value="180"
+                                />
+                                <div class="neck-slider-range">
+                                    <span>Down (150)</span>
+                                    <span>Up (190)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="neck-actions">
+                            <button class="neck-apply-btn">
+                                <span class="neck-btn-label"
+                                    >Apply Position</span
+                                >
+                            </button>
+                            <button class="neck-reset-btn">
+                                <span class="neck-btn-label">Reset</span>
+                            </button>
+                        </div>
+                        <p class="neck-status" id="neck-status" aria-live="polite">
+                            No position sent yet
+                        </p>
                     </section>
                 </section>
 
