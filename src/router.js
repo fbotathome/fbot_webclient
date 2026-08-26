@@ -6,6 +6,7 @@ import {
 import { initVision, destroyVision } from "./pages/visionPage.js";
 import { initEmotions, destroyEmotions } from "./pages/emotionsPage.js";
 import { initSpeech, destroySpeech } from "./pages/speechPage.js";
+import { initLabeler, destroyLabeler } from "./pages/labelerPage.js";
 
 const pageHandlers = {
   dashboard: { init: initDashboard, destroy: destroyDashboard },
@@ -13,6 +14,7 @@ const pageHandlers = {
   vision: { init: initVision, destroy: destroyVision },
   emotions: { init: initEmotions, destroy: destroyEmotions },
   speech: { init: initSpeech, destroy: destroySpeech },
+  labeler: { init: initLabeler, destroy: destroyLabeler },
 };
 
 let currentPage = null;

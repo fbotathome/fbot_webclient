@@ -1,0 +1,26 @@
+labeler_node:
+  ros__parameters:
+    # Lista de classes que o CLIP vai usar para classificação zero-shot.
+    # Adicione ou remova conforme os objetos que você quer reconhecer.
+    classes:
+      - copo
+      - garrafa
+      - tigela
+      - caixa
+      - prato
+      - talheres
+      - banana
+      - tesoura
+      - livro
+      - caneta
+
+    # Pasta raiz onde os datasets serão salvos.
+    # Estrutura gerada: {datasets_path}/{label}/{split}/{timestamp}.jpg
+    datasets_path: ~/datasets
+
+    # Modelo CLIP a usar.
+    # Opções (do mais leve ao mais preciso):
+    #   openai/clip-vit-base-patch32   (default — rápido)
+    #   openai/clip-vit-base-patch16
+    #   openai/clip-vit-large-patch14  (mais preciso — usado no label_propagation)
+    clip_model: openai/clip-vit-base-patch32
