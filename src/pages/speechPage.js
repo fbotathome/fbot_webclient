@@ -5,56 +5,73 @@ import {
 } from "../controllers/speechController.js";
 
 let _cards = null;
+let _form = null;
+let _textInput = null;
+let _langSelect = null;
+let _submitButton = null;
 let _unsubscribe = null;
 let _abortController = null;
 
 function _updateUIState(speaking) {
   _cards.forEach((card) => {
-    const button = card.querySelector("button");
-    if (button) {
-      button.disabled = speaking;
-      card.classList.toggle("speaking-mode", speaking);
-    }
+    card.disabled = speaking;
+    card.classList.toggle("speaking-mode", speaking);
   });
+
+  if (_textInput) _textInput.disabled = speaking;
+  if (_langSelect) _langSelect.disabled = speaking;
+  if (_submitButton) _submitButton.disabled = speaking;
+  if (_form) _form.classList.toggle("speaking-mode", speaking);
 }
 
-const QUICK_LINES = {
-  intro: "Hello! I am Boris.",
-  fbot: "FBOT is an open-source robotics project developed to compete in robotics competitions around the world.",
-  furg: "FURG is a leader in technology and marine studies.",
-};
-
 export function initSpeech() {
-  _cards = document.querySelectorAll(".power-card");
+  _cards = document.querySelectorAll("#page-speech .power-card");
+  _form = document.getElementById("custom-speech-form");
+  _textInput = document.getElementById("custom-speech-text");
+  _langSelect = document.getElementById("custom-speech-lang");
+  _submitButton = _form?.querySelector(".speech-submit") ?? null;
   _abortController = new AbortController();
 
   _updateUIState(isSpeaking());
 
   _cards.forEach((card) => {
-    const button = card.querySelector("button");
-    if (!button) return;
+    const phrase = card.textContent.trim();
+    if (!phrase) return;
 
-    const speechKey = button.getAttribute("onclick")?.match(/'([^']+)'/)?.[1];
-
-    button.addEventListener(
+    card.addEventListener(
       "click",
       async (e) => {
         e.preventDefault();
         e.stopPropagation();
 
-        if (QUICK_LINES[speechKey]) {
-          try {
-            await speak(QUICK_LINES[speechKey], "en");
-          } catch (err) {
-            console.error("[Speech] Error calling speak:", err.message);
-          }
+        try {
+          await speak(phrase, "en");
+        } catch (err) {
+          console.error("[Speech] Error calling speak:", err.message);
         }
       },
       { signal: _abortController.signal },
     );
-
-    button.removeAttribute("onclick");
   });
+
+  if (_form) {
+    _form.addEventListener(
+      "submit",
+      async (e) => {
+        e.preventDefault();
+        const text = _textInput.value.trim();
+        if (!text) return;
+        const lang = _langSelect.value;
+
+        try {
+          await speak(text, lang);
+        } catch (err) {
+          console.error("[Speech] Error calling speak:", err.message);
+        }
+      },
+      { signal: _abortController.signal },
+    );
+  }
 
   _unsubscribe = onSpeakingChange((speaking) => {
     _updateUIState(speaking);
@@ -73,5 +90,9 @@ export function destroySpeech() {
     _unsubscribe = null;
   }
   _cards = null;
+  _form = null;
+  _textInput = null;
+  _langSelect = null;
+  _submitButton = null;
   console.log("[Speech] Page destroyed");
 }

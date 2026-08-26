@@ -1,0 +1,110 @@
+.emotions-current-card,
+.emotions-select-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 20px;
+}
+
+.emotions-section-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--foreground);
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.emotions-preview {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 16px;
+}
+
+.emotions-preview-img {
+    width: 220px;
+    height: 220px;
+    object-fit: cover;
+    border-radius: calc(var(--radius) - 2px);
+    border: 2px solid var(--border);
+    background: var(--card-secondary);
+}
+
+.emotions-current-label {
+    text-align: center;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.emotions-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+}
+
+.emotion-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    border-radius: var(--radius);
+    padding: 6px;
+    border: 2px solid transparent;
+    transition: border-color 0.2s;
+    position: relative;
+    background: none;
+    font-family: inherit;
+}
+
+.emotion-card:hover {
+    border-color: var(--border);
+}
+
+.emotion-card.active {
+    border-color: var(--primary);
+}
+
+.emotion-card.active::after {
+    content: "";
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 10px;
+    height: 10px;
+    background: var(--primary);
+    border-radius: 50%;
+}
+
+.emotion-card img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: calc(var(--radius) - 4px);
+    background: var(--card-secondary);
+}
+
+.emotion-card span {
+    font-size: 12px;
+    color: var(--sidebar-muted);
+    text-align: center;
+}
+
+.emotions-apply-btn {
+    width: 100%;
+    padding: 16px;
+    background: var(--primary);
+    color: var(--foreground);
+    border: none;
+    border-radius: var(--radius);
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.emotions-apply-btn:hover {
+    opacity: 0.85;
+}
