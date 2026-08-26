@@ -1,6 +1,6 @@
 import { callSaySomething } from "../ros/connection.js";
 
-const SUPPORTED_LANGS = Object.freeze(["en"]);
+const SUPPORTED_LANGS = Object.freeze(["en", "pt"]);
 
 let _isSpeaking = false;
 const _listeners = new Set();
