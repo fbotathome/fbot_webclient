@@ -189,8 +189,30 @@
     font-size: 22px;
     font-weight: 700;
     color: var(--foreground);
+    -webkit-text-fill-color: var(--foreground);
+    color-scheme: dark;
     text-transform: capitalize;
     letter-spacing: 0.3px;
+    font-family: inherit;
+    background: var(--card);
+    border: 1px solid #3a3d40;
+    border-radius: 6px;
+    width: 100%;
+    padding: 6px 10px;
+    box-sizing: border-box;
+    cursor: text;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: border-color 0.15s;
+}
+
+.labeler-prediction-label:hover {
+    border-color: var(--primary);
+}
+
+.labeler-prediction-label:focus {
+    outline: none;
+    border-color: var(--primary);
 }
 
 .labeler-confidence {

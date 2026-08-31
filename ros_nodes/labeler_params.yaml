@@ -24,3 +24,8 @@ labeler_node:
     #   openai/clip-vit-base-patch16
     #   openai/clip-vit-large-patch14  (mais preciso — usado no label_propagation)
     clip_model: openai/clip-vit-base-patch32
+
+    # Tópico da câmera RGB do robô (sensor_msgs/Image). Ajuste aqui se o
+    # tópico real do robô tiver outro nome — troque também o parâmetro
+    # ?camera_topic= na URL do webclient para o mesmo valor.
+    camera_topic: /camera/color/image_raw

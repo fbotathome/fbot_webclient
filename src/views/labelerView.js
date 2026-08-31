@@ -28,11 +28,25 @@ const _els = {
 
 let _isInitialized = false;
 let _currentSplit = "train";
+let _currentTopic = null;
 const _counts = { train: 0, valid: 0 };
 const _captures = [];
 
 function _buildStreamUrl(topic) {
     return `${CONFIG.videoServerUrl}/stream?topic=${encodeURIComponent(topic)}&type=mjpeg`;
+}
+
+function _buildSnapshotUrl(topic) {
+    return `${CONFIG.videoServerUrl}/snapshot?topic=${encodeURIComponent(topic)}`;
+}
+
+function _blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
 }
 
 export function initView() {
@@ -77,6 +91,7 @@ function _setSplit(split) {
 
 export function startFeed(topic) {
     if (!_els.feedImg) return;
+    _currentTopic = topic;
     _els.feedImg.onerror = () => setStatus(false, "No feed");
     _els.feedImg.onload = () => {
         _els.feedImg.style.display = "block";
@@ -88,6 +103,7 @@ export function startFeed(topic) {
 
 export function stopFeed() {
     if (!_els.feedImg) return;
+    _currentTopic = null;
     _els.feedImg.src = "";
     _els.feedImg.style.display = "none";
     _els.feedPlaceholder.style.display = "flex";
@@ -95,38 +111,48 @@ export function stopFeed() {
 }
 
 /**
- * Snapshots the current MJPEG frame.
- * If the live feed is unavailable, returns a placeholder canvas so the UI
- * flow can still be tested without a camera connected.
+ * Captures a single frame via the video server's /snapshot endpoint
+ * (a plain HTTP GET returning one JPEG, as opposed to the live MJPEG
+ * stream). This avoids the canvas-tainting issues that come from drawing
+ * a cross-origin multipart/x-mixed-replace <img> onto a <canvas>, which
+ * behave inconsistently across browsers (notably Safari).
+ *
+ * Falls back to a placeholder frame if the request fails, so the UI flow
+ * can still be tested without a camera connected.
  */
-export function snapshotCurrentFrame() {
-    const img = _els.feedImg;
-    const liveAvailable = img && img.src && img.style.display !== "none";
+export async function snapshotCurrentFrame() {
+    if (_currentTopic) {
+        try {
+            const res = await fetch(_buildSnapshotUrl(_currentTopic));
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const blob = await res.blob();
+            return await _blobToDataUrl(blob);
+        } catch (err) {
+            console.warn("[labeler] Snapshot fetch failed, using placeholder:", err);
+        }
+    }
 
+    return _placeholderFrame();
+}
+
+function _placeholderFrame() {
     const canvas = document.createElement("canvas");
     canvas.width  = 640;
     canvas.height = 480;
     const ctx = canvas.getContext("2d");
 
-    if (liveAvailable) {
-        canvas.width  = img.naturalWidth  || 640;
-        canvas.height = img.naturalHeight || 480;
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    } else {
-        // Placeholder frame — camera not available
-        ctx.fillStyle = "#1e2022";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.strokeStyle = "#fe5000";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
-        ctx.fillStyle = "#fe5000";
-        ctx.font = "bold 22px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("No camera feed", canvas.width / 2, canvas.height / 2 - 12);
-        ctx.fillStyle = "#cfcfcf";
-        ctx.font = "14px Arial";
-        ctx.fillText("Offline / demo mode", canvas.width / 2, canvas.height / 2 + 18);
-    }
+    ctx.fillStyle = "#1e2022";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#fe5000";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+    ctx.fillStyle = "#fe5000";
+    ctx.font = "bold 22px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("No camera feed", canvas.width / 2, canvas.height / 2 - 12);
+    ctx.fillStyle = "#cfcfcf";
+    ctx.font = "14px Arial";
+    ctx.fillText("Offline / demo mode", canvas.width / 2, canvas.height / 2 + 18);
 
     return canvas.toDataURL("image/jpeg", 0.92);
 }
@@ -189,7 +215,7 @@ export function showPrediction(label, confidence) {
 
     _els.predictionIdle.style.display = "none";
     _els.predictionResult.style.display = "flex";
-    _els.predictionLabel.textContent = label;
+    _els.predictionLabel.value = label;
 
     // Animate confidence bar after a brief delay so the transition fires
     requestAnimationFrame(() => {
@@ -204,10 +230,14 @@ export function resetPrediction() {
     if (!_els.predictionIdle) return;
     _els.predictionIdle.style.display = "";
     _els.predictionResult.style.display = "none";
-    _els.predictionLabel.textContent = "";
+    _els.predictionLabel.value = "";
     _els.confidenceFill.style.width = "0%";
     _els.confidenceValue.textContent = "";
     _els.actionRow.style.display = "none";
+}
+
+export function getPredictionLabel() {
+    return _els.predictionLabel ? _els.predictionLabel.value.trim() : "";
 }
 
 export function addToGallery(dataUrl, label, split) {
@@ -276,6 +306,9 @@ function _renderGallery() {
 }
 
 export function destroyView() {
+    resetPrediction();
+    showLiveFeed();
+    showShutter(true);
     stopFeed();
     Object.keys(_els).forEach((k) => (_els[k] = null));
     _isInitialized = false;

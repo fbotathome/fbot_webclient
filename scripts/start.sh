@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/bash
 
 ROSBRIDGE_PORT=${ROSBRIDGE_PORT:-9090}
 HOST="0.0.0.0"
@@ -11,15 +11,15 @@ for port in $HTTP_PORT $WEB_VIDEO_PORT $ROSBRIDGE_PORT; do
 done
 sleep 2
 
-SCRIPT_DIR="$(dirname "${0:A}")"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
-WIFI_IFACE=$(nmcli -t -f DEVICE,TYPE device | grep ':wifi' | cut -d: -f1 | head -1)
-LOCAL_IP=$(ip addr show "$WIFI_IFACE" | grep 'inet ' | awk '{print $2}' | cut -d'/' -f1)
+# Distrobox shares the host network namespace — hostname -I is reliable
+LOCAL_IP=$(hostname -I | awk '{print $1}')
 
 if [ -z "$LOCAL_IP" ]; then
-  echo "WARNING: WiFi IP not found. Using fallback."
-  LOCAL_IP=$(hostname -I | awk '{print $1}')
+  echo "WARNING: Could not detect IP. Falling back to localhost."
+  LOCAL_IP="localhost"
 fi
 
 ACCESS_URL="http://$LOCAL_IP:$HTTP_PORT?robot_ip=$LOCAL_IP"
@@ -28,9 +28,10 @@ ACCESS_URL="http://$LOCAL_IP:$HTTP_PORT?robot_ip=$LOCAL_IP"
 echo "Access: $ACCESS_URL"
 
 cleanup() {
-  echo "\nShutting down services..."
-  kill $BRIDGE_PID $VIDEO_PID $STATUS_PID $HTTP_PID 2>/dev/null
-  wait $BRIDGE_PID $VIDEO_PID $STATUS_PID $HTTP_PID 2>/dev/null
+  echo ""
+  echo "Shutting down services..."
+  kill $BRIDGE_PID $VIDEO_PID $STATUS_PID $LABELER_PID $HTTP_PID 2>/dev/null
+  wait $BRIDGE_PID $VIDEO_PID $STATUS_PID $LABELER_PID $HTTP_PID 2>/dev/null
   for port in $HTTP_PORT $WEB_VIDEO_PORT $ROSBRIDGE_PORT; do
     fuser -k $port/tcp 2>/dev/null || true
   done
@@ -47,6 +48,9 @@ VIDEO_PID=$!
 
 python3 "$PROJECT_DIR/ros_nodes/robotStatusPublisher.py" &
 STATUS_PID=$!
+
+python3 "$PROJECT_DIR/ros_nodes/labelerNode.py" &
+LABELER_PID=$!
 
 python3 -m http.server "$HTTP_PORT" --bind "$HOST" --directory "$PROJECT_DIR" &
 HTTP_PID=$!

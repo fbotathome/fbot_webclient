@@ -13,12 +13,20 @@ Protocolo JSON (request):
   { "action": "discard",  "request_id": "<str>" }
 
 Protocolo JSON (response):
-  { "action": "classify", "success": true,  "label": "<str>", "confidence": 0.87, "request_id": "<str>" }
+  { "action": "classify", "success": true,  "label": "<str>", "confidence": 0.87,
+    "frame": "data:image/jpeg;base64,...", "request_id": "<str>" }
   { "action": "classify", "success": false, "error": "<str>", "request_id": "<str>" }
   { "action": "save",     "success": true,  "path": "<str>",  "request_id": "<str>" }
   { "action": "save",     "success": false, "error": "<str>", "request_id": "<str>" }
+
+O campo "frame" é um thumbnail JPEG (base64) do frame realmente capturado e
+classificado — o webclient usa esse frame pra prévia em vez de tentar buscar
+um snapshot via HTTP, já que o web_video_server real não expõe um endpoint
+de imagem única equivalente ao /snapshot do mock_video_server.py.
 """
 
+import base64
+import io
 import json
 import os
 import threading
@@ -44,6 +52,8 @@ try:
     _HAS_CLIP = True
 except ImportError:
     _HAS_CLIP = False
+
+PROMPT_TEMPLATE = "uma foto de um {}"
 
 
 # ── Classifier interface ──────────────────────────────────────────────────────
@@ -74,7 +84,7 @@ class ZeroShotCLIPClassifier(Classifier):
 
     def classify(self, pil_image: "PILImage.Image") -> tuple[str, float]:
         inputs = self.processor(
-            text=self.class_names,
+            text=[PROMPT_TEMPLATE.format(c) for c in self.class_names],
             images=pil_image,
             return_tensors="pt",
             padding=True,
@@ -88,6 +98,18 @@ class ZeroShotCLIPClassifier(Classifier):
         return self.class_names[best_idx], float(probs[best_idx])
 
 
+def _frame_to_data_url(pil_image, max_size: int = 480, quality: int = 80) -> str:
+    """Downscaled JPEG thumbnail of the captured frame, sent back to the
+    webclient so its preview always matches what was actually classified/saved
+    — the webclient has no other reliable way to fetch this frame itself,
+    since web_video_server exposes no single-shot snapshot endpoint."""
+    thumb = pil_image.copy()
+    thumb.thumbnail((max_size, max_size))
+    buf = io.BytesIO()
+    thumb.save(buf, "JPEG", quality=quality)
+    return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+
+
 # ── Node ─────────────────────────────────────────────────────────────────────
 
 class LabelerNode(Node):
@@ -98,10 +120,12 @@ class LabelerNode(Node):
         self.declare_parameter("classes", ["copo", "garrafa", "tigela", "caixa", "prato"])
         self.declare_parameter("datasets_path", os.path.expanduser("~/datasets"))
         self.declare_parameter("clip_model", "openai/clip-vit-base-patch32")
+        self.declare_parameter("camera_topic", "/camera/color/image_raw")
 
         classes       = self.get_parameter("classes").value
         datasets_path = self.get_parameter("datasets_path").value
         clip_model    = self.get_parameter("clip_model").value
+        camera_topic  = self.get_parameter("camera_topic").value
 
         self._datasets_path  = os.path.expanduser(datasets_path)
         self._lock           = threading.Lock()
@@ -125,11 +149,11 @@ class LabelerNode(Node):
             self._classifier = None
 
         # Interfaces ROS
-        self.create_subscription(Image,  "/camera/color/image_raw",         self._on_image,   10)
+        self.create_subscription(Image,  camera_topic,                       self._on_image,   10)
         self.create_subscription(String, "/fbot_webclient/labeler/request",  self._on_request, 10)
         self._pub = self.create_publisher(String, "/fbot_webclient/labeler/response", 10)
 
-        self.get_logger().info("Labeler node pronto.")
+        self.get_logger().info(f"Labeler node pronto. Ouvindo câmera em '{camera_topic}'.")
 
     # ── Callbacks ────────────────────────────────────────────────────────────
 
@@ -189,7 +213,8 @@ class LabelerNode(Node):
             label, confidence = self._classifier.classify(frame)
             self.get_logger().info(f"Classificado: '{label}' ({confidence:.1%})")
             self._respond({"action": "classify", "success": True,
-                           "label": label, "confidence": confidence, "request_id": rid})
+                           "label": label, "confidence": confidence,
+                           "frame": _frame_to_data_url(frame), "request_id": rid})
         except Exception as exc:
             self.get_logger().error(f"Classificação falhou: {exc}")
             self._respond({"action": "classify", "success": False,

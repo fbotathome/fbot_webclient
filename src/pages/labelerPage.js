@@ -1,47 +1,79 @@
+import CONFIG from "../config.js";
 import * as LabelerView from "../views/labelerView.js";
+import {
+  publishLabelerRequest,
+  subscribeLabelerResponse,
+} from "../ros/connection.js";
 
-const CAMERA_TOPIC = "/camera/color/image_raw";
-const CLASSIFY_TIMEOUT_MS = 1800;
+const CLASSIFY_TIMEOUT_MS = 10000;
 
-const _DEMO_LABELS = ["copo", "garrafa", "tigela", "caixa", "prato", "livro"];
+let _pendingSnapshot  = null;
+let _pendingLabel     = null;
+let _pendingRequestId = null;
+let _unsubResponse    = null;
+let _classifyTimeout  = null;
 
-let _pendingSnapshot = null;
-let _pendingLabel    = null;
-let _classifyTimer   = null;
+function _newRequestId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
-function _onCapture() {
-  const dataUrl = LabelerView.snapshotCurrentFrame();
-  _pendingSnapshot = dataUrl;
+async function _onCapture() {
+  LabelerView.showShutter(false);
+  LabelerView.setStatus(true, "Capturing…");
+
+  const dataUrl = await LabelerView.snapshotCurrentFrame();
+  if (!dataUrl) {
+    LabelerView.showShutter(true);
+    LabelerView.setStatus(false, "Snapshot failed");
+    return;
+  }
+
+  _pendingSnapshot  = dataUrl;
+  _pendingRequestId = _newRequestId();
 
   LabelerView.triggerFlash();
   LabelerView.showFrozenFrame(dataUrl);
-  LabelerView.showShutter(false);
   LabelerView.showAnalyzing(true);
   LabelerView.setStatus(true, "Analyzing…");
 
-  _classifyTimer = setTimeout(() => {
-    _onResponse({
-      action:     "classify",
-      success:    true,
-      label:      _DEMO_LABELS[Math.floor(Math.random() * _DEMO_LABELS.length)],
-      confidence: 0.65 + Math.random() * 0.30,
-    });
+  publishLabelerRequest({ action: "classify", request_id: _pendingRequestId });
+
+  const requestId = _pendingRequestId;
+  clearTimeout(_classifyTimeout);
+  _classifyTimeout = setTimeout(() => {
+    if (_pendingRequestId !== requestId) return;
+    console.error("[labeler] Classify timed out — no response from rosbridge.");
+    LabelerView.setStatus(false, "No response from server");
+    _reset();
   }, CLASSIFY_TIMEOUT_MS);
 }
 
 function _onResponse(data) {
   if (data.action === "classify") {
-    clearTimeout(_classifyTimer);
-    _classifyTimer = null;
+    clearTimeout(_classifyTimeout);
     LabelerView.showAnalyzing(false);
 
     if (data.success) {
       _pendingLabel = data.label;
+      if (data.frame) {
+        _pendingSnapshot = data.frame;
+        LabelerView.showFrozenFrame(data.frame);
+      }
       LabelerView.showPrediction(data.label, data.confidence);
       LabelerView.setStatus(true, "Review result");
     } else {
+      console.error("[labeler] Classification error:", data.error);
       LabelerView.setStatus(false, data.error ?? "Error");
       _reset();
+    }
+  }
+
+  if (data.action === "save") {
+    if (data.success) {
+      console.log("[labeler] Saved to:", data.path);
+    } else {
+      console.error("[labeler] Save error:", data.error);
+      LabelerView.setStatus(false, data.error ?? "Save error");
     }
   }
 }
@@ -49,22 +81,35 @@ function _onResponse(data) {
 function _onConfirm() {
   if (!_pendingSnapshot || !_pendingLabel) return;
 
+  const label = LabelerView.getPredictionLabel() || _pendingLabel;
   const split = LabelerView.getCurrentSplit();
-  LabelerView.addToGallery(_pendingSnapshot, _pendingLabel, split);
-  console.log(`[labeler] Confirmed: "${_pendingLabel}" → ${split}`);
+
+  publishLabelerRequest({
+    action:     "save",
+    label,
+    split,
+    request_id: _pendingRequestId,
+  });
+
+  LabelerView.addToGallery(_pendingSnapshot, label, split);
+  console.log(`[labeler] Confirmed: "${label}" → ${split}`);
   _reset();
 }
 
 function _onDiscard() {
+  if (_pendingRequestId) {
+    publishLabelerRequest({ action: "discard", request_id: _pendingRequestId });
+  }
   console.log("[labeler] Discarded.");
   _reset();
 }
 
 function _reset() {
-  clearTimeout(_classifyTimer);
-  _classifyTimer   = null;
-  _pendingSnapshot = null;
-  _pendingLabel    = null;
+  clearTimeout(_classifyTimeout);
+  _classifyTimeout  = null;
+  _pendingSnapshot  = null;
+  _pendingLabel     = null;
+  _pendingRequestId = null;
 
   LabelerView.resetPrediction();
   LabelerView.showAnalyzing(false);
@@ -75,18 +120,32 @@ function _reset() {
 
 export function initLabeler() {
   LabelerView.initView();
-  LabelerView.startFeed(CAMERA_TOPIC);
+  LabelerView.startFeed(CONFIG.cameraTopic);
   LabelerView.setShutterCallback(_onCapture);
   LabelerView.setConfirmCallback(_onConfirm);
   LabelerView.setDiscardCallback(_onDiscard);
-  console.log("[labeler] Page initialized (demo mode).");
+
+  _unsubResponse = subscribeLabelerResponse(_onResponse);
+
+  console.log("[labeler] Page initialized.");
 }
 
 export function destroyLabeler() {
-  clearTimeout(_classifyTimer);
-  _classifyTimer   = null;
-  _pendingSnapshot = null;
-  _pendingLabel    = null;
+  if (_unsubResponse) {
+    _unsubResponse();
+    _unsubResponse = null;
+  }
+
+  if (_pendingRequestId) {
+    publishLabelerRequest({ action: "discard", request_id: _pendingRequestId });
+  }
+
+  clearTimeout(_classifyTimeout);
+  _classifyTimeout  = null;
+  _pendingSnapshot  = null;
+  _pendingLabel     = null;
+  _pendingRequestId = null;
+
   LabelerView.destroyView();
   console.log("[labeler] Page destroyed.");
 }
