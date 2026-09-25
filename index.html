@@ -290,68 +290,55 @@
 
                     <section class="neck-control-card">
                         <h2 class="neck-section-title">Neck Control</h2>
-                        <div class="neck-controls">
-                            <div class="neck-slider-group">
-                                <label
-                                    for="neck-pan-slider"
-                                    class="neck-slider-label"
-                                >
-                                    <span>Pan</span>
-                                    <span
-                                        class="neck-slider-value"
-                                        id="neck-pan-value"
-                                        >180</span
-                                    >
-                                </label>
-                                <input
-                                    type="range"
-                                    id="neck-pan-slider"
-                                    class="neck-slider"
-                                    min="120"
-                                    max="240"
-                                    step="1"
-                                    value="180"
-                                />
-                                <div class="neck-slider-range">
-                                    <span>Left (120)</span>
-                                    <span>Right (240)</span>
-                                </div>
+                        <div class="neck-joystick-wrap">
+                            <div
+                                class="neck-joystick-pad"
+                                id="neck-joystick-pad"
+                                tabindex="0"
+                                role="slider"
+                                aria-label="Neck pan and tilt joystick"
+                            >
+                                <div class="neck-joystick-crosshair-v"></div>
+                                <div class="neck-joystick-crosshair-h"></div>
+                                <div
+                                    class="neck-joystick-handle"
+                                    id="neck-joystick-handle"
+                                ></div>
                             </div>
-                            <div class="neck-slider-group">
-                                <label
-                                    for="neck-tilt-slider"
-                                    class="neck-slider-label"
+                            <div class="neck-joystick-labels">
+                                <span class="neck-joystick-label-top">Up</span>
+                                <span class="neck-joystick-label-bottom"
+                                    >Down</span
                                 >
-                                    <span>Tilt</span>
-                                    <span
-                                        class="neck-slider-value"
-                                        id="neck-tilt-value"
-                                        >180</span
-                                    >
-                                </label>
-                                <input
-                                    type="range"
-                                    id="neck-tilt-slider"
-                                    class="neck-slider"
-                                    min="150"
-                                    max="190"
-                                    step="1"
-                                    value="180"
-                                />
-                                <div class="neck-slider-range">
-                                    <span>Down (150)</span>
-                                    <span>Up (190)</span>
-                                </div>
+                                <span class="neck-joystick-label-left"
+                                    >Left</span
+                                >
+                                <span class="neck-joystick-label-right"
+                                    >Right</span
+                                >
                             </div>
                         </div>
+                        <div class="neck-readout">
+                            <span
+                                >Pan
+                                <b
+                                    class="neck-readout-value"
+                                    id="neck-pan-value"
+                                    >180</b
+                                ></span
+                            >
+                            <span
+                                >Tilt
+                                <b
+                                    class="neck-readout-value"
+                                    id="neck-tilt-value"
+                                    >180</b
+                                ></span
+                            >
+                        </div>
                         <div class="neck-actions">
-                            <button class="neck-apply-btn">
-                                <span class="neck-btn-label"
-                                    >Apply Position</span
-                                >
-                            </button>
                             <button class="neck-reset-btn">
-                                <span class="neck-btn-label">Reset</span>
+                                <span class="neck-btn-label">Center</span>
                             </button>
                         </div>
                         <p class="neck-status" id="neck-status" aria-live="polite">
