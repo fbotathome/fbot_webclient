@@ -1,0 +1,50 @@
+.nav-map-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.nav-map-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--foreground);
+}
+
+.nav-map-wrapper {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: var(--card-secondary);
+    border-radius: calc(var(--radius) - 2px);
+    overflow: hidden;
+}
+
+#nav-map-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.nav-map-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--sidebar-muted);
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.nav-accent {
+    color: var(--primary);
+    font-weight: 600;
+}

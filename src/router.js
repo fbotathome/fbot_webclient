@@ -6,9 +6,14 @@ import {
 import { initVision, destroyVision } from "./pages/visionPage.js";
 import { initEmotions, destroyEmotions } from "./pages/emotionsPage.js";
 import { initSpeech, destroySpeech } from "./pages/speechPage.js";
+import {
+  initNavigation,
+  destroyNavigation,
+} from "./pages/navigationPage.js";
 
 const pageHandlers = {
   dashboard: { init: initDashboard, destroy: destroyDashboard },
+  navigation: { init: initNavigation, destroy: destroyNavigation },
   manipulator: { init: initManipulator, destroy: destroyManipulator },
   vision: { init: initVision, destroy: destroyVision },
   emotions: { init: initEmotions, destroy: destroyEmotions },

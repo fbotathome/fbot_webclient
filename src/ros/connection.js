@@ -57,12 +57,28 @@ export const TOPICS = Object.freeze({
     name: "/joint_states",
     type: "sensor_msgs/JointState",
   },
+  map: {
+    name: "/map",
+    type: "nav_msgs/OccupancyGrid",
+  },
+  amclPose: {
+    name: "/amcl_pose",
+    type: "geometry_msgs/PoseWithCovarianceStamped",
+  },
+  goalPose: {
+    name: "/goal_pose",
+    type: "geometry_msgs/PoseStamped",
+  },
 });
 
 export const SERVICES = Object.freeze({
   saySomething: {
     name: "/fbot_speech/ss/say_something",
     type: "fbot_speech_msgs/SynthesizeSpeech",
+  },
+  getPoseSet: {
+    name: "/fbot_world/get_set",
+    type: "fbot_world_msgs/GetPoseFromSet",
   },
 });
 
@@ -142,6 +158,56 @@ export function subscribeRobotStatus(callback) {
   };
 
   return trackSubscription(_robotStatus, wrapper);
+}
+
+const _map = createTopic(TOPICS.map.name, TOPICS.map.type);
+export function subscribeMap(callback) {
+  return trackSubscription(_map, callback);
+}
+
+const _amclPose = createTopic(TOPICS.amclPose.name, TOPICS.amclPose.type);
+export function subscribePose(callback) {
+  return trackSubscription(_amclPose, callback);
+}
+
+const _goalPose = createPublisher(TOPICS.goalPose.name, TOPICS.goalPose.type);
+export function publishGoalPose(x, y, yawRad) {
+  _goalPose.publish(
+    new ROSLIB.Message({
+      header: {
+        frame_id: "map",
+        stamp: { sec: 0, nanosec: 0 },
+      },
+      pose: {
+        position: { x, y, z: 0 },
+        orientation: {
+          x: 0,
+          y: 0,
+          z: Math.sin(yawRad / 2),
+          w: Math.cos(yawRad / 2),
+        },
+      },
+    }),
+  );
+}
+
+const _getPoseSetClient = createService(
+  SERVICES.getPoseSet.name,
+  SERVICES.getPoseSet.type,
+);
+export function callGetPoseSet(groupSet = "targets") {
+  const request = new ROSLIB.ServiceRequest({ group_set: groupSet });
+
+  return new Promise((resolve, reject) => {
+    _getPoseSetClient.callService(
+      request,
+      (result) => resolve(result),
+      (error) => {
+        console.error("[ROS] Error calling get_set:", error);
+        reject(error);
+      },
+    );
+  });
 }
 
 const _saySomethingClient = createService(

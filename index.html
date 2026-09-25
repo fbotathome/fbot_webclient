@@ -7,6 +7,7 @@
         <link rel="stylesheet" href="css/layout.css" />
         <link rel="stylesheet" href="css/sidebar.css" />
         <link rel="stylesheet" href="css/dashboard.css" />
+        <link rel="stylesheet" href="css/navigation.css" />
         <link rel="stylesheet" href="css/manipulator.css" />
         <link rel="stylesheet" href="css/vision.css" />
         <link rel="stylesheet" href="css/emotions.css" />
@@ -154,7 +155,32 @@
                 </section>
 
                 <section id="page-navigation" class="page">
-                    <h2>Navigation</h2>
+                    <div class="nav-map-card">
+                        <div class="nav-map-header">
+                            <span>Map</span>
+                            <span
+                                id="nav-map-status"
+                                class="vision-inactive"
+                                >No map received</span
+                            >
+                        </div>
+                        <div
+                            class="nav-map-wrapper"
+                            id="nav-map-wrapper"
+                        >
+                            <canvas id="nav-map-canvas"></canvas>
+                        </div>
+                        <div class="nav-map-footer">
+                            <span id="nav-pose-readout">Pose: --</span>
+                            <span
+                                id="nav-goal-hint"
+                                class="nav-accent"
+                                >Click a named location, or drag
+                                anywhere on the map to set a
+                                custom goal</span
+                            >
+                        </div>
+                    </div>
                 </section>
 
                 <section id="page-vision" class="page">
