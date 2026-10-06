@@ -2,6 +2,9 @@ labeler_node:
   ros__parameters:
     # Lista de classes que o CLIP vai usar para classificação zero-shot.
     # Adicione ou remova conforme os objetos que você quer reconhecer.
+    # Só vale enquanto datasets_path não tiver imagens rotuladas: quando há
+    # pelo menos 2 classes em {datasets_path}/{label}/train/, o node treina
+    # com elas e as classes passam a ser os nomes dessas pastas.
     classes:
       - copo
       - garrafa
@@ -16,6 +19,8 @@ labeler_node:
 
     # Pasta raiz onde os datasets serão salvos.
     # Estrutura gerada: {datasets_path}/{label}/{split}/{timestamp}.jpg
+    # As capturas confirmadas só são gravadas aqui quando salvas pela galeria
+    # do webclient; a galeria lista o que estiver nesta pasta.
     datasets_path: ~/datasets
 
     # Modelo CLIP a usar.

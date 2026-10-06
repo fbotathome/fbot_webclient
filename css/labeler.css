@@ -421,6 +421,39 @@
     opacity: 1;
 }
 
+.labeler-gallery-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.labeler-gallery-action {
+    padding: 8px 14px;
+    border: 1px solid #3a3d40;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    background: var(--card-secondary);
+    color: var(--foreground);
+    transition: opacity 0.2s, transform 0.1s;
+}
+
+.labeler-gallery-action.primary {
+    background: #4caf50;
+    border-color: #4caf50;
+    color: #fff;
+}
+
+.labeler-gallery-action:active:not(:disabled) {
+    transform: scale(0.96);
+}
+
+.labeler-gallery-action:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
 .labeler-gallery-grid {
     display: flex;
     gap: 10px;
@@ -460,6 +493,73 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    pointer-events: none;
+}
+
+.labeler-gallery-item {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+}
+
+/* Selection circle: hidden until selection mode; saved items show it as a
+   small green check instead. */
+.labeler-gallery-check {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 20px;
+    height: 20px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    background: rgba(0, 0, 0, 0.45);
+    color: transparent;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+    display: none;
+}
+
+.labeler-gallery-grid.selecting .labeler-gallery-item {
+    cursor: pointer;
+}
+
+.labeler-gallery-grid.selecting .labeler-gallery-item:hover {
+    transform: none;
+}
+
+.labeler-gallery-grid.selecting .labeler-gallery-check {
+    display: block;
+}
+
+.labeler-gallery-item.selected {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary);
+}
+
+.labeler-gallery-item.selected .labeler-gallery-check {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--primary-foreground);
+}
+
+.labeler-gallery-item.saved .labeler-gallery-check {
+    display: block;
+    width: 16px;
+    height: 16px;
+    border: none;
+    background: #4caf50;
+    color: #fff;
+    font-size: 10px;
+    line-height: 16px;
+}
+
+.labeler-gallery-grid.selecting .labeler-gallery-item.saved {
+    opacity: 0.35;
+    cursor: default;
 }
 
 .labeler-gallery-badge {

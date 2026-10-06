@@ -23,21 +23,33 @@ const _els = {
     statusText: null,
     galleryGrid: null,
     galleryEmpty: null,
+    galleryTitle: null,
+    selectBtn: null,
+    selectAllBtn: null,
+    saveBtn: null,
     clearBtn: null,
 };
+
+const LONG_PRESS_MS = 450;
 
 let _isInitialized = false;
 let _currentSplit = "train";
 let _currentTopic = null;
-const _counts = { train: 0, valid: 0 };
+// Gallery items, newest first: { id, label, split, saved, time, thumb }
 const _captures = [];
+const _selected = new Set();
+let _isSelecting = false;
+let _longPressTimer = null;
+let _swallowNextClick = false;
+let _saveCallback = null;
+let _clearCallback = null;
 
 function _buildStreamUrl(topic) {
-    return `${CONFIG.videoServerUrl}/stream?topic=${encodeURIComponent(topic)}&type=mjpeg`;
+    return `${CONFIG.videoServerUrl}/stream?topic=${topic}&type=mjpeg`;
 }
 
 function _buildSnapshotUrl(topic) {
-    return `${CONFIG.videoServerUrl}/snapshot?topic=${encodeURIComponent(topic)}`;
+    return `${CONFIG.videoServerUrl}/snapshot?topic=${topic}`;
 }
 
 function _blobToDataUrl(blob) {
@@ -74,13 +86,30 @@ export function initView() {
     _els.statusText       = document.getElementById("labeler-status-text");
     _els.galleryGrid      = document.getElementById("labeler-gallery-grid");
     _els.galleryEmpty     = document.getElementById("labeler-gallery-empty");
+    _els.galleryTitle     = document.getElementById("labeler-gallery-title");
+    _els.selectBtn        = document.getElementById("labeler-gallery-select");
+    _els.selectAllBtn     = document.getElementById("labeler-gallery-select-all");
+    _els.saveBtn          = document.getElementById("labeler-gallery-save");
     _els.clearBtn         = document.getElementById("labeler-gallery-clear");
 
     _els.splitBtnTrain.addEventListener("click", () => _setSplit("train"));
     _els.splitBtnValid.addEventListener("click", () => _setSplit("valid"));
-    _els.clearBtn.addEventListener("click", _clearGallery);
+
+    // Named handlers: initView runs on every visit to the page, and
+    // addEventListener only dedupes identical function references.
+    _els.selectBtn.addEventListener("click", _onSelectClick);
+    _els.selectAllBtn.addEventListener("click", _onSelectAllClick);
+    _els.saveBtn.addEventListener("click", _onSaveClick);
+    _els.clearBtn.addEventListener("click", _onClearClick);
+    _els.galleryGrid.addEventListener("click", _onGridClick);
+    _els.galleryGrid.addEventListener("pointerdown", _onGridPointerDown);
+    _els.galleryGrid.addEventListener("pointerup", _cancelLongPress);
+    _els.galleryGrid.addEventListener("pointerleave", _cancelLongPress);
+    _els.galleryGrid.addEventListener("pointercancel", _cancelLongPress);
+    _els.galleryGrid.addEventListener("contextmenu", _onGridContextMenu);
 
     _isInitialized = true;
+    _renderGallery();
 }
 
 function _setSplit(split) {
@@ -240,10 +269,39 @@ export function getPredictionLabel() {
     return _els.predictionLabel ? _els.predictionLabel.value.trim() : "";
 }
 
-export function addToGallery(dataUrl, label, split) {
-    _counts[split]++;
-    _captures.unshift({ dataUrl, label, split });
-    _updateStats();
+/**
+ * Adds items ({ id, label, split, saved, time, thumb }) to the gallery,
+ * ignoring ones that are already there.
+ */
+export function addToGallery(items) {
+    for (const item of items) {
+        if (!_captures.some((c) => c.id === item.id)) _captures.push(item);
+    }
+    _captures.sort((a, b) => b.time - a.time);
+    _renderGallery();
+}
+
+/** entries: [{ id, new_id }] — saved captures get the id of their dataset file. */
+export function markSaved(entries) {
+    for (const { id, new_id } of entries) {
+        const item = _captures.find((c) => c.id === id);
+        if (!item) continue;
+        item.id = new_id;
+        item.saved = true;
+    }
+    _renderGallery();
+}
+
+export function removeUnsaved() {
+    for (let i = _captures.length - 1; i >= 0; i--) {
+        if (!_captures[i].saved) _captures.splice(i, 1);
+    }
+    _renderGallery();
+}
+
+export function clearGallery() {
+    _captures.length = 0;
+    _isSelecting = false;
     _renderGallery();
 }
 
@@ -269,40 +327,164 @@ export function setDiscardCallback(fn) {
     _els.discardBtn?.addEventListener("click", fn);
 }
 
-function _updateStats() {
-    if (_els.statTrain) _els.statTrain.textContent = _counts.train;
-    if (_els.statValid) _els.statValid.textContent = _counts.valid;
+/** fn receives the ids of the selected (unsaved) captures. */
+export function setSaveCallback(fn) {
+    _saveCallback = fn;
 }
 
-function _clearGallery() {
-    _captures.length = 0;
-    _counts.train = 0;
-    _counts.valid = 0;
-    _updateStats();
-    _renderGallery();
+export function setClearCallback(fn) {
+    _clearCallback = fn;
+}
+
+function _pendingIds() {
+    return _captures.filter((c) => !c.saved).map((c) => c.id);
+}
+
+function _onSelectClick() {
+    _isSelecting = !_isSelecting;
+    _selected.clear();
+    _syncGallery();
+}
+
+function _onSelectAllClick() {
+    const pending = _pendingIds();
+    const allSelected = _isSelecting && _selected.size === pending.length;
+    _isSelecting = true;
+    _selected.clear();
+    if (!allSelected) pending.forEach((id) => _selected.add(id));
+    _syncGallery();
+}
+
+function _onSaveClick() {
+    const ids = [..._selected];
+    if (ids.length === 0) return;
+    _isSelecting = false;
+    _syncGallery();
+    _saveCallback?.(ids);
+}
+
+function _onClearClick() {
+    _clearCallback?.();
+}
+
+function _itemFromEvent(event) {
+    const el = event.target.closest(".labeler-gallery-item");
+    if (!el) return null;
+    return _captures.find((c) => c.id === el.dataset.id) ?? null;
+}
+
+function _toggleSelected(item) {
+    if (item.saved) return;
+    if (!_selected.delete(item.id)) _selected.add(item.id);
+    _syncGallery();
+}
+
+function _onGridClick(event) {
+    if (_swallowNextClick) {
+        _swallowNextClick = false;
+        return;
+    }
+    const item = _itemFromEvent(event);
+    if (item && _isSelecting) _toggleSelected(item);
+}
+
+// Long press on a capture enters selection mode, like a phone gallery.
+function _onGridPointerDown(event) {
+    _cancelLongPress();
+    _swallowNextClick = false;
+    const item = _itemFromEvent(event);
+    if (!item || item.saved || _isSelecting) return;
+    _longPressTimer = setTimeout(() => {
+        _longPressTimer = null;
+        _swallowNextClick = true;
+        _isSelecting = true;
+        _selected.clear();
+        _selected.add(item.id);
+        _syncGallery();
+    }, LONG_PRESS_MS);
+}
+
+function _cancelLongPress() {
+    clearTimeout(_longPressTimer);
+    _longPressTimer = null;
+}
+
+function _onGridContextMenu(event) {
+    if (_itemFromEvent(event)) event.preventDefault();
 }
 
 function _renderGallery() {
     if (!_els.galleryGrid) return;
-    _els.galleryGrid.innerHTML = "";
-
-    if (_captures.length === 0) {
-        _els.galleryEmpty.style.display = "flex";
-        return;
-    }
-
-    _els.galleryEmpty.style.display = "none";
+    _els.galleryGrid.replaceChildren(_els.galleryEmpty);
 
     for (const item of _captures) {
         const div = document.createElement("div");
         div.className = "labeler-gallery-item";
-        div.innerHTML = `
-            <img src="${item.dataUrl}" alt="${item.label}" />
-            <span class="labeler-gallery-badge">${item.label}</span>
-            <span class="labeler-split-tag ${item.split}">${item.split}</span>
-        `;
+        div.dataset.id = item.id;
+
+        const img = document.createElement("img");
+        img.src = item.thumb;
+        img.alt = item.label;
+        img.draggable = false;
+
+        const badge = document.createElement("span");
+        badge.className = "labeler-gallery-badge";
+        badge.textContent = item.label;
+
+        const tag = document.createElement("span");
+        tag.className = `labeler-split-tag ${item.split}`;
+        tag.textContent = item.split;
+
+        const check = document.createElement("span");
+        check.className = "labeler-gallery-check";
+        check.textContent = "\u2713";
+
+        div.append(img, badge, tag, check);
         _els.galleryGrid.appendChild(div);
     }
+
+    _syncGallery();
+}
+
+/** Updates selection/saved state and the header without rebuilding the grid. */
+function _syncGallery() {
+    if (!_els.galleryGrid) return;
+
+    const pending = _pendingIds();
+    for (const id of [..._selected]) {
+        if (!pending.includes(id)) _selected.delete(id);
+    }
+    if (pending.length === 0) _isSelecting = false;
+    if (!_isSelecting) _selected.clear();
+
+    _els.galleryEmpty.style.display = _captures.length === 0 ? "flex" : "none";
+    _els.galleryGrid.classList.toggle("selecting", _isSelecting);
+    for (const el of _els.galleryGrid.querySelectorAll(".labeler-gallery-item")) {
+        const item = _captures.find((c) => c.id === el.dataset.id);
+        el.classList.toggle("saved", item.saved);
+        el.classList.toggle("selected", _selected.has(item.id));
+    }
+
+    if (_isSelecting) {
+        _els.galleryTitle.textContent = `${_selected.size} selected`;
+    } else if (pending.length > 0) {
+        _els.galleryTitle.textContent = `Gallery \u00b7 ${pending.length} unsaved`;
+    } else {
+        _els.galleryTitle.textContent = "Gallery";
+    }
+
+    const allSelected = _isSelecting && _selected.size === pending.length;
+    _els.selectBtn.textContent = _isSelecting ? "Cancel" : "Select";
+    _els.selectBtn.style.display = pending.length > 0 ? "" : "none";
+    _els.selectAllBtn.textContent = allSelected ? "Deselect all" : "Select all";
+    _els.selectAllBtn.style.display = pending.length > 0 ? "" : "none";
+    _els.saveBtn.textContent = _selected.size > 0 ? `Save (${_selected.size})` : "Save";
+    _els.saveBtn.style.display = _isSelecting ? "" : "none";
+    _els.saveBtn.disabled = _selected.size === 0;
+    _els.clearBtn.style.display = !_isSelecting && pending.length > 0 ? "" : "none";
+
+    _els.statTrain.textContent = _captures.filter((c) => c.split === "train").length;
+    _els.statValid.textContent = _captures.filter((c) => c.split === "valid").length;
 }
 
 export function destroyView() {
@@ -310,10 +492,9 @@ export function destroyView() {
     showLiveFeed();
     showShutter(true);
     stopFeed();
+    _cancelLongPress();
+    clearGallery();
     Object.keys(_els).forEach((k) => (_els[k] = null));
     _isInitialized = false;
     _currentSplit = "train";
-    _counts.train = 0;
-    _counts.valid = 0;
-    _captures.length = 0;
 }

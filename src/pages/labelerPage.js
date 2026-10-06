@@ -6,12 +6,15 @@ import {
 } from "../ros/connection.js";
 
 const CLASSIFY_TIMEOUT_MS = 10000;
+const GALLERY_RETRY_MS = 2000;
 
 let _pendingSnapshot  = null;
 let _pendingLabel     = null;
 let _pendingRequestId = null;
 let _unsubResponse    = null;
 let _classifyTimeout  = null;
+let _galleryOffset       = 0;
+let _galleryRetryTimer   = null;
 
 function _newRequestId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -48,6 +51,32 @@ async function _onCapture() {
   }, CLASSIFY_TIMEOUT_MS);
 }
 
+/**
+ * Loads the gallery (the dataset on disk plus any unsaved captures) from the
+ * labeler node, one page at a time. Keeps
+ * re-requesting the current page until it arrives, since the first requests
+ * can be lost while rosbridge is still connecting.
+ */
+function _requestGalleryPage() {
+  clearTimeout(_galleryRetryTimer);
+  publishLabelerRequest({ action: "gallery_list", offset: _galleryOffset });
+  _galleryRetryTimer = setTimeout(_requestGalleryPage, GALLERY_RETRY_MS);
+}
+
+function _onGalleryPage(data) {
+  if (!_galleryRetryTimer || !data.success || data.offset !== _galleryOffset) return;
+
+  LabelerView.addToGallery(data.items);
+  _galleryOffset += data.items.length;
+
+  if (data.items.length > 0 && _galleryOffset < data.total) {
+    _requestGalleryPage();
+  } else {
+    clearTimeout(_galleryRetryTimer);
+    _galleryRetryTimer = null;
+  }
+}
+
 function _onResponse(data) {
   if (data.action === "classify") {
     clearTimeout(_classifyTimeout);
@@ -68,13 +97,31 @@ function _onResponse(data) {
     }
   }
 
-  if (data.action === "save") {
+  if (data.action === "stage") {
     if (data.success) {
-      console.log("[labeler] Saved to:", data.path);
+      LabelerView.addToGallery([data.item]);
     } else {
-      console.error("[labeler] Save error:", data.error);
-      LabelerView.setStatus(false, data.error ?? "Save error");
+      console.error("[labeler] Stage error:", data.error);
+      LabelerView.setStatus(false, data.error ?? "Capture not kept");
     }
+  }
+
+  // Only responses to gallery saves carry "saved".
+  if (data.action === "save" && data.saved) {
+    LabelerView.markSaved(data.saved);
+    if (data.success) {
+      console.log("[labeler] Saved:", data.saved.map((entry) => entry.path));
+      LabelerView.setStatus(true, `Saved ${data.saved.length} to dataset`);
+    } else {
+      console.error("[labeler] Save errors:", data.errors);
+      LabelerView.setStatus(false, `${data.errors.length} not saved: ${data.errors[0].error}`);
+    }
+  }
+
+  if (data.action === "gallery_list") _onGalleryPage(data);
+
+  if (data.action === "discard_unsaved" && data.success) {
+    LabelerView.removeUnsaved();
   }
 }
 
@@ -84,16 +131,27 @@ function _onConfirm() {
   const label = LabelerView.getPredictionLabel() || _pendingLabel;
   const split = LabelerView.getCurrentSplit();
 
+  // Kept by the node as an unsaved capture; it only reaches the dataset
+  // once saved from the gallery.
   publishLabelerRequest({
-    action:     "save",
+    action:     "stage",
     label,
     split,
     request_id: _pendingRequestId,
   });
 
-  LabelerView.addToGallery(_pendingSnapshot, label, split);
   console.log(`[labeler] Confirmed: "${label}" → ${split}`);
   _reset();
+}
+
+function _onSaveSelected(ids) {
+  LabelerView.setStatus(true, "Saving…");
+  publishLabelerRequest({ action: "save", ids });
+}
+
+function _onDiscardUnsaved() {
+  if (!window.confirm("Discard all unsaved captures?")) return;
+  publishLabelerRequest({ action: "discard_unsaved" });
 }
 
 function _onDiscard() {
@@ -124,8 +182,13 @@ export function initLabeler() {
   LabelerView.setShutterCallback(_onCapture);
   LabelerView.setConfirmCallback(_onConfirm);
   LabelerView.setDiscardCallback(_onDiscard);
+  LabelerView.setSaveCallback(_onSaveSelected);
+  LabelerView.setClearCallback(_onDiscardUnsaved);
 
   _unsubResponse = subscribeLabelerResponse(_onResponse);
+
+  _galleryOffset = 0;
+  _requestGalleryPage();
 
   console.log("[labeler] Page initialized.");
 }
@@ -141,7 +204,9 @@ export function destroyLabeler() {
   }
 
   clearTimeout(_classifyTimeout);
+  clearTimeout(_galleryRetryTimer);
   _classifyTimeout  = null;
+  _galleryRetryTimer   = null;
   _pendingSnapshot  = null;
   _pendingLabel     = null;
   _pendingRequestId = null;

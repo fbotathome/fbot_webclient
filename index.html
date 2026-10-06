@@ -431,11 +431,16 @@
                         </div>
                     </div>
 
-                    <!-- Session gallery -->
+                    <!-- Gallery (dataset on disk + unsaved captures) -->
                     <div class="labeler-gallery-card">
                         <div class="labeler-gallery-header">
-                            <span class="labeler-gallery-title">Session Gallery</span>
-                            <button class="labeler-gallery-clear" id="labeler-gallery-clear">Clear all</button>
+                            <span class="labeler-gallery-title" id="labeler-gallery-title">Gallery</span>
+                            <div class="labeler-gallery-actions">
+                                <button class="labeler-gallery-clear" id="labeler-gallery-clear" style="display:none">Discard unsaved</button>
+                                <button class="labeler-gallery-action" id="labeler-gallery-select-all" style="display:none">Select all</button>
+                                <button class="labeler-gallery-action" id="labeler-gallery-select" style="display:none">Select</button>
+                                <button class="labeler-gallery-action primary" id="labeler-gallery-save" style="display:none" disabled>Save</button>
+                            </div>
                         </div>
                         <div class="labeler-gallery-grid" id="labeler-gallery-grid">
                             <div class="labeler-gallery-empty" id="labeler-gallery-empty">No captures yet</div>
