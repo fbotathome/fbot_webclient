@@ -48,3 +48,135 @@
     color: var(--primary);
     font-weight: 600;
 }
+
+.nav-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: calc(var(--radius) - 2px);
+    border: 1px solid var(--border);
+    background: var(--card-secondary);
+    color: var(--foreground);
+    font-size: 14px;
+}
+
+.nav-status-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+#nav-status-title {
+    font-weight: 600;
+}
+
+.nav-status-detail {
+    font-size: 12px;
+    color: var(--sidebar-muted);
+}
+
+.nav-status--active {
+    border-color: var(--primary);
+}
+
+.nav-status--success {
+    border-color: #4caf50;
+}
+
+.nav-status--error {
+    border-color: var(--danger);
+}
+
+.nav-cancel-btn {
+    padding: 8px 18px;
+    border: none;
+    border-radius: var(--radius);
+    background: var(--danger);
+    color: var(--danger-foreground);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.nav-cancel-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.nav-cancel-btn[hidden] {
+    display: none;
+}
+
+.nav-map-header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.nav-status-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.nav-small-btn {
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+    color: var(--foreground);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.nav-go-btn {
+    padding: 8px 22px;
+    border: none;
+    border-radius: var(--radius);
+    background: #4caf50;
+    color: #fff;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.nav-status--preview {
+    border-color: #4caf50;
+    border-style: dashed;
+}
+
+.nav-go-btn[hidden],
+.nav-small-btn[hidden] {
+    display: none;
+}
+
+.nav-group-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.nav-group-select {
+    padding: 5px 8px;
+    border-radius: calc(var(--radius) - 2px);
+    border: 1px solid var(--border);
+    background: var(--card-secondary);
+    color: var(--foreground);
+    font-family: inherit;
+    font-size: 13px;
+}
+
+.nav-small-btn[aria-pressed="true"] {
+    background: #ffb300;
+    border-color: #ffb300;
+    color: #25282a;
+}
+

@@ -69,6 +69,42 @@ export const TOPICS = Object.freeze({
     name: "/goal_pose",
     type: "geometry_msgs/PoseStamped",
   },
+  // Pose estimate for AMCL, like RViz's "2D Pose Estimate".
+  initialPose: {
+    name: "/initialpose",
+    type: "geometry_msgs/PoseWithCovarianceStamped",
+  },
+  // Odometry fills in the robot's motion between AMCL updates (EKF output on BORIS).
+  odometry: {
+    name: "/odometry/filtered",
+    type: "nav_msgs/Odometry",
+  },
+  plan: {
+    name: "/plan",
+    type: "nav_msgs/Path",
+  },
+  scan: {
+    name: "/scan",
+    type: "sensor_msgs/LaserScan",
+  },
+  // Static TF only (published once): enough to place the laser on the robot.
+  // The full /tf stream carries every joint of the base, neck and arm at high
+  // rate — too much to push through rosbridge as JSON.
+  tfStatic: {
+    name: "/tf_static",
+    type: "tf2_msgs/TFMessage",
+  },
+  // Nav2's NavigateToPose action, read through its underlying topics: the
+  // vendored roslib predates ROS 2 action support. bt_navigator turns each
+  // /goal_pose message into one of these goals.
+  navStatus: {
+    name: "/navigate_to_pose/_action/status",
+    type: "action_msgs/GoalStatusArray",
+  },
+  navFeedback: {
+    name: "/navigate_to_pose/_action/feedback",
+    type: "nav2_msgs/action/NavigateToPose_FeedbackMessage",
+  },
 });
 
 export const SERVICES = Object.freeze({
@@ -79,6 +115,22 @@ export const SERVICES = Object.freeze({
   getPoseSet: {
     name: "/fbot_world/get_set",
     type: "fbot_world_msgs/GetPoseFromSet",
+  },
+  navCancel: {
+    name: "/navigate_to_pose/_action/cancel_goal",
+    type: "action_msgs/CancelGoal",
+  },
+  getGroupsNames: {
+    name: "/fbot_world/get_groups_names",
+    type: "fbot_world_msgs/GetSets",
+  },
+  clearGlobalCostmap: {
+    name: "/global_costmap/clear_entirely_global_costmap",
+    type: "nav2_msgs/ClearEntireCostmap",
+  },
+  clearLocalCostmap: {
+    name: "/local_costmap/clear_entirely_local_costmap",
+    type: "nav2_msgs/ClearEntireCostmap",
   },
 });
 
@@ -189,6 +241,126 @@ export function publishGoalPose(x, y, yawRad) {
       },
     }),
   );
+}
+
+// Same covariance RViz uses for "2D Pose Estimate".
+const INITIAL_POSE_COVARIANCE = (() => {
+  const c = new Array(36).fill(0);
+  c[0] = 0.25; // x
+  c[7] = 0.25; // y
+  c[35] = 0.06853891945200942; // yaw
+  return c;
+})();
+const _initialPose = createPublisher(TOPICS.initialPose.name, TOPICS.initialPose.type);
+export function publishInitialPose(x, y, yawRad) {
+  _initialPose.publish(
+    new ROSLIB.Message({
+      header: { frame_id: "map", stamp: { sec: 0, nanosec: 0 } },
+      pose: {
+        pose: {
+          position: { x, y, z: 0 },
+          orientation: { x: 0, y: 0, z: Math.sin(yawRad / 2), w: Math.cos(yawRad / 2) },
+        },
+        covariance: INITIAL_POSE_COVARIANCE,
+      },
+    }),
+  );
+}
+
+const _odometry = createTopic(TOPICS.odometry.name, TOPICS.odometry.type, {
+  throttle_rate: 100,
+  queue_length: 1,
+});
+export function subscribeOdometry(callback) {
+  return trackSubscription(_odometry, callback);
+}
+
+const _plan = createTopic(TOPICS.plan.name, TOPICS.plan.type, {
+  throttle_rate: 500,
+  queue_length: 1,
+});
+export function subscribePlan(callback) {
+  return trackSubscription(_plan, callback);
+}
+
+const _scan = createTopic(TOPICS.scan.name, TOPICS.scan.type, {
+  throttle_rate: 200,
+  queue_length: 1,
+});
+export function subscribeScan(callback) {
+  return trackSubscription(_scan, callback);
+}
+
+const _tfStatic = createTopic(TOPICS.tfStatic.name, TOPICS.tfStatic.type);
+export function subscribeTfStatic(callback) {
+  return trackSubscription(_tfStatic, callback);
+}
+
+const _navStatus = createTopic(TOPICS.navStatus.name, TOPICS.navStatus.type);
+export function subscribeNavStatus(callback) {
+  return trackSubscription(_navStatus, callback);
+}
+
+// Nav2 publishes feedback at ~20 Hz; the page only needs a few updates a second.
+const _navFeedback = createTopic(TOPICS.navFeedback.name, TOPICS.navFeedback.type, {
+  throttle_rate: 250,
+});
+export function subscribeNavFeedback(callback) {
+  return trackSubscription(_navFeedback, callback);
+}
+
+const _navCancelClient = createService(
+  SERVICES.navCancel.name,
+  SERVICES.navCancel.type,
+);
+// A zero goal id and zero stamp cancel every active goal (action_msgs/CancelGoal).
+export function callCancelNavigation() {
+  const request = new ROSLIB.ServiceRequest({
+    goal_info: {
+      goal_id: { uuid: new Array(16).fill(0) },
+      stamp: { sec: 0, nanosec: 0 },
+    },
+  });
+  return new Promise((resolve, reject) => {
+    _navCancelClient.callService(request, resolve, (error) => {
+      console.error("[ROS] Error canceling navigation:", error);
+      reject(error);
+    });
+  });
+}
+
+const _clearCostmapClients = [SERVICES.clearGlobalCostmap, SERVICES.clearLocalCostmap].map(
+  (srv) => createService(srv.name, srv.type),
+);
+export function callClearCostmaps() {
+  return Promise.all(
+    _clearCostmapClients.map(
+      (client) =>
+        new Promise((resolve, reject) => {
+          client.callService(new ROSLIB.ServiceRequest({}), resolve, (error) => {
+            console.error(`[ROS] Error clearing ${client.name}:`, error);
+            reject(error);
+          });
+        }),
+    ),
+  );
+}
+
+const _getGroupsNamesClient = createService(
+  SERVICES.getGroupsNames.name,
+  SERVICES.getGroupsNames.type,
+);
+export function callGetGroupsNames() {
+  return new Promise((resolve, reject) => {
+    _getGroupsNamesClient.callService(
+      new ROSLIB.ServiceRequest({}),
+      (result) => resolve(result.response),
+      (error) => {
+        console.error("[ROS] Error calling get_groups_names:", error);
+        reject(error);
+      },
+    );
+  });
 }
 
 const _getPoseSetClient = createService(
