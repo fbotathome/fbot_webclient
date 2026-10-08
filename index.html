@@ -330,6 +330,280 @@
                             class="manipulator-canvas-container"
                         ></div>
                     </div>
+                    <p class="manip-drag-hint">
+                        Tip: like RViz, drag the end-effector marker —
+                        arrows move along an axis, rings rotate, the
+                        center sphere moves freely — to preview a new
+                        pose before confirming. You can also drag a
+                        joint to move it directly
+                    </p>
+
+                    <div id="manip-target-confirm" class="manip-target-confirm" hidden>
+                        <span id="manip-target-confirm-text"
+                            >Move to previewed position?</span
+                        >
+                        <div class="manip-target-confirm-actions">
+                            <button
+                                class="manip-btn manip-btn-confirm"
+                                id="manip-target-confirm-btn"
+                            >
+                                Confirm
+                            </button>
+                            <button
+                                class="manip-btn manip-btn-cancel"
+                                id="manip-target-cancel-btn"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+
+                    <section class="manip-controls-grid">
+                        <div class="manip-card">
+                            <h2 class="manip-card-title">Gripper</h2>
+                            <div class="manip-slider-row">
+                                <input
+                                    type="range"
+                                    id="manip-gripper-slider"
+                                    class="manip-slider"
+                                    min="0"
+                                    max="0.9"
+                                    step="0.01"
+                                    value="0"
+                                />
+                                <span
+                                    class="manip-slider-value"
+                                    id="manip-gripper-value"
+                                    >0.00</span
+                                >
+                            </div>
+                            <button
+                                class="manip-btn"
+                                id="manip-gripper-apply"
+                            >
+                                Set Position
+                            </button>
+                        </div>
+
+                        <div class="manip-card">
+                            <h2 class="manip-card-title">Named Target</h2>
+                            <div class="manip-row">
+                                <select
+                                    id="manip-named-target-select"
+                                    class="manip-select"
+                                >
+                                    <option value="home">Home</option>
+                                    <option value="hold-up">Hold Up</option>
+                                </select>
+                                <button
+                                    class="manip-btn"
+                                    id="manip-named-target-apply"
+                                >
+                                    Move
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="manip-card manip-card-wide">
+                            <h2 class="manip-card-title">Joints</h2>
+                            <div class="manip-joint-list">
+                                <div class="manip-joint-row">
+                                    <label
+                                        for="manip-joint-1"
+                                        class="manip-joint-label"
+                                        >Joint 1
+                                        <span
+                                            class="manip-slider-value"
+                                            id="manip-joint-1-value"
+                                            >0.00</span
+                                        ></label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="manip-joint-1"
+                                        class="manip-slider"
+                                        min="-6.283185307179586"
+                                        max="6.283185307179586"
+                                        step="0.01"
+                                        value="0"
+                                    />
+                                </div>
+                                <div class="manip-joint-row">
+                                    <label
+                                        for="manip-joint-2"
+                                        class="manip-joint-label"
+                                        >Joint 2
+                                        <span
+                                            class="manip-slider-value"
+                                            id="manip-joint-2-value"
+                                            >0.00</span
+                                        ></label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="manip-joint-2"
+                                        class="manip-slider"
+                                        min="-2.059"
+                                        max="2.0944"
+                                        step="0.01"
+                                        value="0"
+                                    />
+                                </div>
+                                <div class="manip-joint-row">
+                                    <label
+                                        for="manip-joint-3"
+                                        class="manip-joint-label"
+                                        >Joint 3
+                                        <span
+                                            class="manip-slider-value"
+                                            id="manip-joint-3-value"
+                                            >0.00</span
+                                        ></label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="manip-joint-3"
+                                        class="manip-slider"
+                                        min="-3.927"
+                                        max="0.19198"
+                                        step="0.01"
+                                        value="0"
+                                    />
+                                </div>
+                                <div class="manip-joint-row">
+                                    <label
+                                        for="manip-joint-4"
+                                        class="manip-joint-label"
+                                        >Joint 4
+                                        <span
+                                            class="manip-slider-value"
+                                            id="manip-joint-4-value"
+                                            >0.00</span
+                                        ></label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="manip-joint-4"
+                                        class="manip-slider"
+                                        min="-6.283185307179586"
+                                        max="6.283185307179586"
+                                        step="0.01"
+                                        value="0"
+                                    />
+                                </div>
+                                <div class="manip-joint-row">
+                                    <label
+                                        for="manip-joint-5"
+                                        class="manip-joint-label"
+                                        >Joint 5
+                                        <span
+                                            class="manip-slider-value"
+                                            id="manip-joint-5-value"
+                                            >0.00</span
+                                        ></label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="manip-joint-5"
+                                        class="manip-slider"
+                                        min="-1.69297"
+                                        max="3.141592653589793"
+                                        step="0.01"
+                                        value="0"
+                                    />
+                                </div>
+                                <div class="manip-joint-row">
+                                    <label
+                                        for="manip-joint-6"
+                                        class="manip-joint-label"
+                                        >Joint 6
+                                        <span
+                                            class="manip-slider-value"
+                                            id="manip-joint-6-value"
+                                            >0.00</span
+                                        ></label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="manip-joint-6"
+                                        class="manip-slider"
+                                        min="-6.283185307179586"
+                                        max="6.283185307179586"
+                                        step="0.01"
+                                        value="0"
+                                    />
+                                </div>
+                            </div>
+                            <button class="manip-btn" id="manip-joints-apply">
+                                Move Joints
+                            </button>
+                        </div>
+
+                        <div class="manip-card manip-card-wide">
+                            <div class="manip-pick-header">
+                                <h2 class="manip-card-title">Pick Object</h2>
+                                <label class="manip-pick-camera-label"
+                                    >Camera
+                                    <select
+                                        id="manip-pick-camera"
+                                        class="manip-select"
+                                        disabled
+                                    ></select>
+                                </label>
+                            </div>
+                            <div class="manip-pick-feed">
+                                <img
+                                    id="manip-pick-img"
+                                    class="manip-pick-img"
+                                    alt="Camera feed"
+                                />
+                                <svg
+                                    id="manip-pick-overlay"
+                                    class="manip-pick-overlay"
+                                    preserveAspectRatio="xMidYMid meet"
+                                ></svg>
+                                <span
+                                    id="manip-pick-placeholder"
+                                    class="manip-pick-placeholder"
+                                    >Waiting for detections…</span
+                                >
+                            </div>
+                            <p
+                                id="manip-pick-status"
+                                class="manip-pick-status"
+                                aria-live="polite"
+                            >
+                                Click an object in the image to select it
+                            </p>
+                            <div class="manip-pick-progress">
+                                <div id="manip-pick-progress-bar"></div>
+                            </div>
+                            <div class="manip-row">
+                                <button
+                                    class="manip-btn"
+                                    id="manip-pick-apply"
+                                    disabled
+                                >
+                                    Pick
+                                </button>
+                                <button
+                                    class="manip-btn manip-btn-cancel"
+                                    id="manip-pick-cancel"
+                                    hidden
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <p
+                        class="manip-status"
+                        id="manip-status"
+                        aria-live="polite"
+                    >
+                        No command sent yet
+                    </p>
                 </section>
             </main>
         </div>

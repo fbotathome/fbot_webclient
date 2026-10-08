@@ -29,8 +29,8 @@ echo "Access: $ACCESS_URL"
 
 cleanup() {
   echo "\nShutting down services..."
-  kill $BRIDGE_PID $VIDEO_PID $STATUS_PID $HTTP_PID 2>/dev/null
-  wait $BRIDGE_PID $VIDEO_PID $STATUS_PID $HTTP_PID 2>/dev/null
+  kill $BRIDGE_PID $VIDEO_PID $STATUS_PID $PICK_PID $HTTP_PID 2>/dev/null
+  wait $BRIDGE_PID $VIDEO_PID $STATUS_PID $PICK_PID $HTTP_PID 2>/dev/null
   for port in $HTTP_PORT $WEB_VIDEO_PORT $ROSBRIDGE_PORT; do
     fuser -k $port/tcp 2>/dev/null || true
   done
@@ -47,6 +47,9 @@ VIDEO_PID=$!
 
 python3 "$PROJECT_DIR/ros_nodes/robotStatusPublisher.py" &
 STATUS_PID=$!
+
+python3 "$PROJECT_DIR/ros_nodes/pickObjectBridge.py" &
+PICK_PID=$!
 
 python3 -m http.server "$HTTP_PORT" --bind "$HOST" --directory "$PROJECT_DIR" &
 HTTP_PID=$!
