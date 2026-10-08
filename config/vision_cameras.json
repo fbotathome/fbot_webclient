@@ -1,0 +1,19 @@
+{
+  "_comment": "Cameras on the Vision page (first = default). imageTopic: the image the detector runs on; cameraInfoTopic: its camera_info (for resolution/FPS); detectionTopic: the detector's annotated debug image. Defaults match BORIS v2 (fbot_vision fbot_recognition/config/yolov8_{femtobolt,realsense}.yaml). Edit and reload the page; no code change needed.",
+  "cameras": [
+    {
+      "id": "femtobolt",
+      "name": "Head (Femto Bolt)",
+      "imageTopic": "/femtobolt/color/image_raw",
+      "cameraInfoTopic": "/femtobolt/color/camera_info",
+      "detectionTopic": "/fbot_vision/femtobolt/object_debug"
+    },
+    {
+      "id": "realsense",
+      "name": "Wrist (RealSense)",
+      "imageTopic": "/realsense/color/image_raw",
+      "cameraInfoTopic": "/realsense/color/camera_info",
+      "detectionTopic": "/fbot_vision/realsense/object_debug"
+    }
+  ]
+}

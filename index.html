@@ -250,6 +250,15 @@
                 </section>
 
                 <section id="page-vision" class="page">
+                    <div class="vision-toolbar">
+                        <label class="vision-camera-label"
+                            >Camera
+                            <select
+                                id="vision-camera-select"
+                                class="vision-camera-select"
+                            ></select>
+                        </label>
+                    </div>
                     <section class="vision-grid">
                         <div class="vision-card" id="card-rgb">
                             <div class="vision-card-header">
@@ -266,7 +275,9 @@
                                     alt=""
                                     class="feed-placeholder-icon"
                                 />
-                                <span class="feed-placeholder-label"
+                                <span
+                                    class="feed-placeholder-label"
+                                    id="rgb-placeholder-label"
                                     >Camera Feed</span
                                 >
                                 <img
@@ -296,8 +307,13 @@
                                 <img
                                     src="assets/vision/eye.svg"
                                     alt=""
-                                    class="card-icon"
+                                    class="feed-placeholder-icon"
                                 />
+                                <span
+                                    class="feed-placeholder-label"
+                                    id="detection-placeholder-label"
+                                    >Detection Feed</span
+                                >
                                 <img
                                     id="img-detection"
                                     class="feed-img"
@@ -305,7 +321,7 @@
                                 />
                             </div>
                             <div class="vision-card-footer">
-                                <span id="detection-model">Model: --</span>
+                                <span id="detection-model">Detector: --</span>
                                 <span
                                     id="detection-status"
                                     class="vision-inactive"
