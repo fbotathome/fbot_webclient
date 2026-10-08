@@ -113,10 +113,6 @@ export function stopRun() {
   publishTaskCommand({ action: "stop_run" });
 }
 
-export function rescanTasks() {
-  publishTaskCommand({ action: "rescan" });
-}
-
 /** Any launch file; the runner keeps it as the component "<package>/<launch>". */
 export function startCustomLaunch(pkg, launch, args) {
   publishTaskCommand({ action: "start_custom", package: pkg, launch, args });

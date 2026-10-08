@@ -31,7 +31,7 @@ function _button(className, text, data = {}) {
   return button;
 }
 
-export function formatUptime(seconds) {
+function formatUptime(seconds) {
   const s = Math.max(0, Math.floor(seconds || 0));
   const hh = Math.floor(s / 3600);
   const mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0");

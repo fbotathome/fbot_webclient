@@ -1,5 +1,7 @@
 /* tasks.css */
 
+#page-tasks [hidden] { display: none !important; }
+
 .task-card {
   background: var(--card);
   border: 1px solid var(--border);
@@ -94,7 +96,6 @@
 
 .task-item:hover { background: rgba(255, 255, 255, 0.05); }
 .task-item--active { background: rgba(254, 80, 0, 0.15); box-shadow: inset 3px 0 0 var(--primary); font-weight: 600; }
-.task-item--missing .task-item-name { color: var(--sidebar-muted); }
 .task-item-badges { display: inline-flex; gap: 4px; flex-shrink: 0; }
 .task-list-empty { padding: 12px; color: var(--sidebar-muted); font-size: 13px; }
 
@@ -151,7 +152,6 @@
   color: #81c784;
 }
 
-.task-pill[hidden] { display: none; }
 .task-pill[data-state="starting"],
 .task-pill[data-state="stopping"] { background: rgba(255, 179, 0, 0.15); color: #ffb300; }
 
@@ -273,22 +273,8 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
-.task-jump[hidden] { display: none; }
 .task-output-note { font-size: 12px; color: #ffb300; }
 .task-output-note:empty { display: none; }
-
-@media (max-width: 800px) {
-  .task-layout { grid-template-columns: 1fr; }
-  .task-list { max-height: 220px; }
-  .task-output-actions { width: 100%; }
-  .task-output-actions .task-input { flex: 1; width: auto; }
-  .task-output { height: 320px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .task-state[data-state="running"] .task-dot { animation: none; }
-  .task-btn { transition: none; }
-}
 
 /* Components */
 
@@ -338,7 +324,6 @@
 .task-comp-args:empty { display: none; }
 .task-comp-args--edited { color: #ffcc66; }
 .task-comp-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-.task-comp-actions [hidden] { display: none; }
 
 .task-icon {
   width: 32px;
@@ -355,7 +340,6 @@
 
 .task-icon:hover { color: var(--foreground); border-color: rgba(255, 255, 255, 0.3); }
 .task-icon--active { color: var(--primary); border-color: var(--primary); }
-.task-icon[hidden] { display: none; }
 
 /* Launch argument editor */
 
@@ -367,7 +351,6 @@
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.task-args-editor[hidden] { display: none; }
 .task-arg-status { font-size: 12px; color: var(--sidebar-muted); }
 .task-arg-status--error { color: #ff8a80; }
 
@@ -396,7 +379,6 @@
 /* Components outside the task, and starting one by hand */
 
 .task-extra { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
-.task-extra[hidden] { display: none; }
 .task-extra-title { font-size: 12px; font-weight: 600; color: var(--sidebar-muted); }
 .task-add { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
 .task-add .task-input { flex: 1; max-width: 320px; padding: 6px 10px; font-size: 13px; }
@@ -412,20 +394,9 @@
 }
 
 .task-output-actions select.task-input { max-width: 200px; }
-.task-output-actions [hidden] { display: none; }
-
-@media (max-width: 800px) {
-  .task-comp-main { flex-wrap: wrap; }
-  .task-comp-actions { width: 100%; justify-content: flex-end; }
-  .task-args-editor { padding-left: 12px; }
-  .task-arg { grid-template-columns: 1fr 32px; }
-  .task-arg-name { grid-column: 1 / 3; }
-  .task-arg-desc { grid-column: 1 / 3; }
-}
 
 /* Tasks | Launches */
 
-#page-tasks [hidden] { display: none !important; }
 .task-mode button { padding: 6px 18px; font-size: 14px; }
 .task-layout--single { grid-template-columns: 1fr; }
 
@@ -434,3 +405,22 @@
 .task-custom-fields .task-input { padding: 6px 10px; font-family: monospace; font-size: 12.5px; width: 190px; }
 .task-custom-fields .task-custom-args { flex: 1; min-width: 220px; }
 .task-hint--error { color: #ff8a80; }
+
+@media (max-width: 800px) {
+  .task-layout { grid-template-columns: 1fr; }
+  .task-list { max-height: 220px; }
+  .task-output-actions { width: 100%; }
+  .task-output-actions .task-input { flex: 1; width: auto; }
+  .task-output { height: 320px; }
+  .task-comp-main { flex-wrap: wrap; }
+  .task-comp-actions { width: 100%; justify-content: flex-end; }
+  .task-args-editor { padding-left: 12px; }
+  .task-arg { grid-template-columns: 1fr 32px; }
+  .task-arg-name { grid-column: 1 / 3; }
+  .task-arg-desc { grid-column: 1 / 3; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-state[data-state="running"] .task-dot { animation: none; }
+  .task-btn { transition: none; }
+}

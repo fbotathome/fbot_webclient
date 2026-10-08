@@ -222,7 +222,7 @@ class TaskRunner(Node):
             self.get_logger().error(self._message)
         lib = steps and steps[1] / "lib" / self._steps_package
         executables = {p.name for p in lib.iterdir()} if lib and lib.is_dir() else set()
-        return {"components": problems, "executables": executables, "steps_found": steps is not None}
+        return {"components": problems, "executables": executables}
 
     # Commands
 
@@ -565,15 +565,13 @@ class TaskRunner(Node):
             for tid, task in self._tasks.items()
         ]
         running = {
-            key: {"label": proc["label"], "task": proc.get("task"), "state": proc["state"],
+            key: {"task": proc.get("task"), "state": proc["state"],
                   "uptime_s": now - proc["started_at"], "args": proc.get("args"),
                   "executable": proc.get("executable"), "restarting": bool(proc["restart"])}
             for key, proc in self._procs.items()
         }
         queue = self._queue and {"task": self._queue["task"], "pending": [c for c, _ in self._queue["items"]]}
         self._status_pub.publish(String(data=json.dumps({
-            "steps_package": self._steps_package,
-            "steps_found": self._installed["steps_found"],
             "components": components,
             "tasks": tasks,
             "running": running,
