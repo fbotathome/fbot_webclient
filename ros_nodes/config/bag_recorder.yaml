@@ -24,3 +24,17 @@ presets:
   logs:
     name: Logs only
     topics: [/rosout]
+
+# Never replayed when playing a bag back (fnmatch patterns): commands that
+# would move the robot or act on its nodes, plus old logs that the Logs panel
+# would show as new. /fbot_webclient/bag/* is always blocked.
+play_blocked_topics:
+  - /cmd_vel
+  - /goal_pose
+  - /initialpose
+  - /updateNeck
+  - /fbot_face/emotion
+  - /fbot_webclient/pick/request
+  - /fbot_webclient/pick/cancel
+  - /rosout
+  - /parameter_events

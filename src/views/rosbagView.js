@@ -10,6 +10,14 @@ const CONFIRM_WINDOW_MS = 5000;
 const _els = {};
 let _topicsKey = "";
 let _bagsKey = "";
+let _seeking = false; // while the seek bar is dragged, status updates don't move it
+// The recorder reports the position once a second; between reports it is extrapolated
+// from the last one ({ name, pos, at, rate, duration, loop, moving }), so the bar moves smoothly.
+let _anchor = null;
+let _raf = 0;
+// A reported position this far (s) from the extrapolated one re-anchors the bar; closer ones are
+// ignored, so small differences between both estimates don't make it jump back and forth.
+const DRIFT_S = 0.75;
 
 export function formatBytes(bytes) {
   if (bytes == null) return "—";
@@ -60,18 +68,23 @@ function _armDelete(button, onConfirm) {
 
 /**
  * handlers: onRecord(), onStop(), onPreset(id), onToggleTopic(name, checked),
- * onSelectVisible(checked), onFilter(text), onDelete(name). bagUrl(name) gives a download link.
+ * onSelectVisible(checked), onFilter(text), onDelete(name), onPlay(name), onStopPlay(),
+ * onPause(paused), onRate(rate), onLoop(loop), onSeek(seconds). bagUrl(name) gives a download link.
  */
 export function initRosbagView(handlers, bagUrl) {
   for (const id of [
     "bag-state", "bag-state-text", "bag-live", "bag-live-name", "bag-live-time", "bag-live-size",
     "bag-live-limits", "bag-name", "bag-presets", "bag-topics", "bag-topic-count", "bag-filter", "bag-all",
     "bag-none", "bag-record", "bag-message", "bag-disk", "bag-list", "bag-list-empty", "bag-output-dir",
+    "bag-play-state", "bag-play-state-text", "bag-play-name", "bag-play-pos", "bag-play-seek", "bag-play-dur",
+    "bag-play-pause", "bag-play-stop", "bag-play-rate", "bag-play-loop", "bag-play-note",
   ]) {
     _els[id] = document.getElementById(id);
   }
   _topicsKey = "";
   _bagsKey = "";
+  _seeking = false;
+  _anchor = null;
   _els.bagUrl = bagUrl;
 
   const listeners = [
@@ -87,12 +100,38 @@ export function initRosbagView(handlers, bagUrl) {
     [_els["bag-none"], "click", () => handlers.onSelectVisible(false)],
     [_els["bag-filter"], "input", () => handlers.onFilter(_els["bag-filter"].value)],
     [_els["bag-list"], "click", (e) => {
+      const play = e.target.closest("button[data-play]");
+      if (play) handlers.onPlay(play.dataset.play);
       const button = e.target.closest("button[data-bag]");
       if (button) _armDelete(button, handlers.onDelete);
     }],
+    [_els["bag-play-pause"], "click", () => handlers.onPause(_els["bag-play-pause"].dataset.action === "pause")],
+    [_els["bag-play-stop"], "click", () => handlers.onStopPlay()],
+    [_els["bag-play-rate"], "click", (e) => {
+      const button = e.target.closest("button[data-rate]");
+      if (button) handlers.onRate(Number(button.dataset.rate));
+    }],
+    [_els["bag-play-loop"], "change", () => handlers.onLoop(_els["bag-play-loop"].checked)],
+    [_els["bag-play-seek"], "input", () => {
+      _seeking = true;
+      _drawProgress();
+    }],
+    [_els["bag-play-seek"], "change", () => {
+      _seeking = false;
+      const position = Number(_els["bag-play-seek"].value);
+      // Jump right away instead of waiting for the player's reply.
+      if (_anchor) _anchor = { ..._anchor, pos: position, at: performance.now() };
+      handlers.onSeek(position);
+    }],
   ];
   for (const [el, type, fn] of listeners) el.addEventListener(type, fn);
+  const frame = () => {
+    _drawProgress();
+    _raf = requestAnimationFrame(frame);
+  };
+  _raf = requestAnimationFrame(frame);
   return () => {
+    cancelAnimationFrame(_raf);
     for (const [el, type, fn] of listeners) el.removeEventListener(type, fn);
   };
 }
@@ -195,22 +234,37 @@ function _renderTopics(names, published, selected, filter, locked) {
   );
 }
 
-function _renderBags(bags, canDownload, message) {
+// Recording time, plus the span between the first and last message when it is much shorter
+// (sparse topics like /rosout, or topics that weren't published).
+function _durationCell(bag) {
+  const td = _el("td", "bag-num", formatDuration(bag.recorded_s ?? bag.duration_s));
+  if (bag.recorded_s != null && bag.duration_s != null && bag.recorded_s - bag.duration_s > 2) {
+    td.append(_el("span", "bag-span", `msgs ${formatDuration(bag.duration_s)}`));
+    td.title = `Recorded for ${formatDuration(bag.recorded_s)}, but its messages only span ` +
+      `${formatDuration(bag.duration_s)}: the topics were sparse or not published`;
+  }
+  return td;
+}
+
+function _renderBags(bags, canDownload, message, canPlay, playing) {
   // Rebuilt only on change, so tooltips, text selection and armed buttons survive the 1 Hz status.
   // A new message (e.g. a failed delete) also rebuilds, which resets a "Deleting…" button.
-  const key = JSON.stringify([bags, canDownload, message]);
+  const key = JSON.stringify([bags, canDownload, message, canPlay, playing]);
   if (key === _bagsKey) return;
   _bagsKey = key;
   _els["bag-list-empty"].hidden = bags.length > 0;
   _els["bag-list"].replaceChildren(
     ...bags.map((bag) => {
       const tr = _el("tr");
+      const isPlaying = bag.name === playing;
+      tr.classList.toggle("bag-row--playing", isPlaying);
       const name = _el("td", "bag-list-name", bag.name);
       if (bag.message_count == null) name.append(_el("span", "bag-tag bag-tag--warn", "no metadata"));
+      if (isPlaying) name.append(_el("span", "bag-tag bag-tag--play", "playing"));
       tr.append(
         name,
         _el("td", null, new Date(bag.created * 1000).toLocaleString()),
-        _el("td", "bag-num", formatDuration(bag.duration_s)),
+        _durationCell(bag),
         _el("td", "bag-num", formatBytes(bag.size_bytes)),
         _el("td", "bag-num", bag.message_count == null ? "—" : bag.message_count.toLocaleString()),
       );
@@ -218,6 +272,11 @@ function _renderBags(bags, canDownload, message) {
       if (bag.topics) topics.title = bag.topics.join("\n");
 
       const actions = _el("td", "bag-actions-cell");
+      const play = _el("button", "dash-btn bag-play", "Play");
+      play.type = "button";
+      play.dataset.play = bag.name;
+      play.disabled = !canPlay || bag.message_count == null;
+      if (bag.message_count == null) play.title = "The recording was cut off, ros2 bag play can't open it";
       const download = _el("a", "dash-btn bag-download", "Download");
       if (canDownload) {
         download.href = _els.bagUrl(bag.name);
@@ -229,7 +288,8 @@ function _renderBags(bags, canDownload, message) {
       const remove = _el("button", "dash-btn bag-delete", "Delete");
       remove.type = "button";
       remove.dataset.bag = bag.name;
-      actions.append(download, remove);
+      remove.disabled = isPlaying;
+      actions.append(play, download, remove);
 
       tr.append(topics, actions);
       return tr;
@@ -237,11 +297,101 @@ function _renderBags(bags, canDownload, message) {
   );
 }
 
-/** view: { online, status, selected: Set, filter, pending, activePreset } */
-export function renderRosbag({ online, status, selected, filter, pending, activePreset }) {
+function _position(anchor, now) {
+  if (!anchor) return 0;
+  const pos = anchor.pos + (anchor.moving ? ((now - anchor.at) / 1000) * anchor.rate : 0);
+  if (anchor.loop && anchor.duration) return pos % anchor.duration;
+  return Math.min(pos, anchor.duration);
+}
+
+function _drawProgress() {
+  const seek = _els["bag-play-seek"];
+  const duration = _anchor?.duration || 0;
+  const pos = _seeking ? Number(seek.value) : _position(_anchor, performance.now());
+  if (!_seeking) seek.value = String(pos);
+  seek.style.setProperty("--pct", `${duration ? (pos / duration) * 100 : 0}%`);
+  const text = formatDuration(pos);
+  if (_els["bag-play-pos"].textContent !== text) _els["bag-play-pos"].textContent = text;
+}
+
+function _updateAnchor(playback) {
+  if (!playback) {
+    _anchor = null;
+    return;
+  }
+  const now = performance.now();
+  const moving = playback.state === "playing" && !playback.paused;
+  const keep =
+    _anchor?.moving && moving && _anchor.name === playback.name && _anchor.rate === playback.rate &&
+    Math.abs(_position(_anchor, now) - playback.position_s) < DRIFT_S;
+  if (!keep) {
+    _anchor = {
+      name: playback.name, pos: playback.position_s, at: now, rate: playback.rate,
+      duration: playback.duration_s || 0, loop: playback.loop, moving,
+    };
+  }
+}
+
+function _renderPlayback(online, playback, blocked, pending, rate, loop) {
+  const state = !online ? "offline" : !playback ? "idle" : playback.paused ? "paused" : playback.state;
+  _els["bag-play-state"].dataset.state = state;
+  _els["bag-play-state-text"].textContent = {
+    offline: "Recorder offline",
+    idle: "Idle",
+    starting: "Starting",
+    playing: "Playing",
+    paused: "Paused",
+    stopping: "Stopping",
+  }[state];
+
+  _els["bag-play-name"].textContent = playback?.name ?? "Press Play on a bag below";
+  _els["bag-play-name"].classList.toggle("bag-play-name--idle", !playback);
+
+  _updateAnchor(playback);
+  const seek = _els["bag-play-seek"];
+  seek.max = String(playback?.duration_s || 0);
+  seek.disabled = playback?.state !== "playing";
+  if (seek.disabled) _seeking = false;
+  _els["bag-play-dur"].textContent = formatDuration(playback?.duration_s || 0);
+  _drawProgress();
+
+  const pause = _els["bag-play-pause"];
+  const label = playback?.paused ? "Resume" : "Pause";
+  pause.dataset.action = playback?.paused ? "resume" : "pause";
+  pause.setAttribute("aria-label", label);
+  pause.title = label;
+  pause.disabled = !online || playback?.state !== "playing";
+  const stop = _els["bag-play-stop"];
+  stop.disabled = !online || !playback || playback.state === "stopping" || !!pending;
+
+  // While playing, the speed shown is the player's; loop can only be chosen before playing.
+  const shownRate = playback ? playback.rate : rate;
+  const rateLocked = !online || (!!playback && playback.state !== "playing");
+  for (const button of _els["bag-play-rate"].children) {
+    const active = Number(button.dataset.rate) === shownRate;
+    button.classList.toggle("bag-segmented--active", active);
+    button.setAttribute("aria-pressed", String(active));
+    button.disabled = rateLocked;
+  }
+  _els["bag-play-loop"].checked = playback ? playback.loop : loop;
+  _els["bag-play-loop"].disabled = !online || !!playback;
+
+  const note = playback?.skipped?.length
+    ? `Not replayed (blocked in bag_recorder.yaml): ${playback.skipped.join(", ")}`
+    : blocked?.length
+      ? `Never replayed: ${blocked.join(", ")}. Playing on the running robot mixes old and live messages.`
+      : "";
+  _els["bag-play-note"].textContent = note;
+}
+
+/** view: { online, status, selected: Set, filter, pending, activePreset, playRate, playLoop } */
+export function renderRosbag({ online, status, selected, filter, pending, activePreset, playRate, playLoop }) {
   const recording = online ? status?.recording : null;
+  const playback = online ? status?.playback : null;
+  const recPending = pending === "start" || pending === "stop" ? pending : null;
+  const playPending = pending === "play" || pending === "stop_play" ? pending : null;
   const busy = recording && recording.state !== "recording";
-  const locked = !online || !!recording || !!pending;
+  const locked = !online || !!recording || !!recPending;
 
   const published = new Map((status?.topics || []).map((t) => [t.name, t.type]));
   // Fixed list: what is published, every preset topic, and what is being recorded.
@@ -260,10 +410,10 @@ export function renderRosbag({ online, status, selected, filter, pending, active
     `${selected.size} selected` + (waiting ? ` · ${waiting} not published yet (recorded once they appear)` : "");
 
   const button = _els["bag-record"];
-  const action = pending || { starting: "start", stopping: "stop" }[recording?.state];
+  const action = recPending || { starting: "start", stopping: "stop" }[recording?.state];
   button.dataset.mode = recording ? "stop" : "record";
   button.textContent = action === "stop" ? "Stopping…" : action === "start" ? "Starting…" : recording ? "Stop" : "Record";
-  button.disabled = !online || !!pending || busy || (!recording && selected.size === 0);
+  button.disabled = !online || !!recPending || busy || (!recording && selected.size === 0);
 
   const message = _els["bag-message"];
   if (!online) {
@@ -281,6 +431,8 @@ export function renderRosbag({ online, status, selected, filter, pending, active
     _els["bag-disk"].textContent = `${formatBytes(status.free_bytes)} free`;
     _els["bag-disk"].classList.toggle("bag-disk--low", status.free_bytes < Math.max(LOW_DISK_BYTES, 2 * minFree));
     _els["bag-output-dir"].textContent = status.output_dir;
-    _renderBags(status.bags || [], !!status.download_port, status.message);
+    _renderBags(status.bags || [], !!status.download_port, status.message,
+      online && !playback && !playPending, playback?.name ?? null);
   }
+  _renderPlayback(online, playback, status?.play_blocked, playPending, playRate, playLoop);
 }

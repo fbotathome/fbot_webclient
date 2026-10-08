@@ -225,3 +225,194 @@
 .bag-delete--armed { background: var(--danger); border-color: var(--danger); color: var(--danger-foreground); }
 
 .bag-chip-count { margin-left: 8px; font-size: 11px; opacity: 0.7; font-family: monospace; }
+
+/* Playback */
+
+.bag-state[data-state="playing"] { border-color: var(--primary); }
+.bag-state[data-state="playing"] .bag-dot { background: var(--primary); }
+.bag-state[data-state="paused"] { border-color: #ffb300; color: #ffb300; }
+.bag-state[data-state="paused"] .bag-dot { background: #ffb300; }
+
+.bag-player { display: flex; align-items: center; gap: 18px; }
+.bag-player-buttons { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.bag-player-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+
+.bag-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--card-secondary);
+  color: var(--foreground);
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.15s ease, opacity 0.15s ease;
+}
+
+.bag-icon-btn--main {
+  width: 52px;
+  height: 52px;
+  border: none;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.bag-icon-btn:hover:not(:disabled) { transform: scale(1.06); }
+.bag-icon-btn:active:not(:disabled) { transform: scale(0.95); }
+.bag-icon-btn:disabled { opacity: 0.35; cursor: default; }
+.bag-icon { width: 20px; height: 20px; fill: currentColor; }
+.bag-icon-btn--main .bag-icon { width: 24px; height: 24px; }
+.bag-icon-btn[data-action="pause"] .bag-icon--resume,
+.bag-icon-btn[data-action="resume"] .bag-icon--pause { display: none; }
+
+.bag-player-info { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+
+.bag-play-name {
+  font-family: monospace;
+  font-size: 15px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bag-play-name--idle { font-family: inherit; font-weight: 400; color: var(--sidebar-muted); font-size: 13px; }
+
+.bag-play-clock {
+  font-family: monospace;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.bag-play-clock-sep,
+#bag-play-dur { color: var(--sidebar-muted); }
+
+/* Seek bar: the part already played is filled up to --pct (set every frame). */
+.bag-play-seek {
+  --pct: 0%;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  margin: 6px 0;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--primary) var(--pct), rgba(255, 255, 255, 0.12) var(--pct));
+  cursor: pointer;
+  outline: none;
+  transition: height 0.15s ease;
+}
+
+.bag-play-seek:hover:not(:disabled),
+.bag-play-seek:focus-visible { height: 8px; }
+.bag-play-seek:disabled { cursor: default; opacity: 0.5; }
+
+.bag-play-seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: none;
+  background: var(--foreground);
+  box-shadow: 0 0 0 4px rgba(254, 80, 0, 0.35);
+  transform: scale(0);
+  transition: transform 0.15s ease;
+}
+
+.bag-play-seek::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: none;
+  background: var(--foreground);
+  box-shadow: 0 0 0 4px rgba(254, 80, 0, 0.35);
+  transform: scale(0);
+  transition: transform 0.15s ease;
+}
+
+.bag-play-seek:hover:not(:disabled)::-webkit-slider-thumb,
+.bag-play-seek:active:not(:disabled)::-webkit-slider-thumb,
+.bag-play-seek:focus-visible::-webkit-slider-thumb { transform: scale(1); }
+.bag-play-seek:hover:not(:disabled)::-moz-range-thumb,
+.bag-play-seek:active:not(:disabled)::-moz-range-thumb,
+.bag-play-seek:focus-visible::-moz-range-thumb { transform: scale(1); }
+
+.bag-play-controls { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+
+.bag-play-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.bag-segmented {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border-radius: 999px;
+  background: var(--card-secondary);
+}
+
+.bag-segmented button {
+  padding: 4px 12px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--sidebar-muted);
+  font-family: monospace;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.bag-segmented button:hover:not(:disabled) { color: var(--foreground); }
+.bag-segmented button.bag-segmented--active { background: var(--primary); color: var(--primary-foreground); font-weight: 700; }
+.bag-segmented button:disabled { cursor: default; opacity: 0.5; }
+
+/* Loop: a switch drawn over a hidden checkbox. */
+.bag-toggle { cursor: pointer; position: relative; }
+.bag-toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+
+.bag-toggle-track {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  transition: background 0.15s ease;
+}
+
+.bag-toggle-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--foreground);
+  transition: transform 0.15s ease;
+}
+
+.bag-toggle input:checked + .bag-toggle-track { background: var(--primary); }
+.bag-toggle input:checked + .bag-toggle-track::after { transform: translateX(14px); }
+.bag-toggle input:focus-visible + .bag-toggle-track { outline: 2px solid var(--primary); outline-offset: 2px; }
+.bag-toggle:has(input:disabled) { opacity: 0.5; cursor: default; }
+
+@media (max-width: 600px) {
+  .bag-player { flex-direction: column; align-items: stretch; }
+  .bag-player-buttons { order: 2; justify-content: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bag-icon-btn, .bag-play-seek, .bag-segmented button, .bag-toggle-track, .bag-toggle-track::after,
+  .bag-play-seek::-webkit-slider-thumb { transition: none; }
+}
+
+.bag-play-note { font-size: 12px; color: var(--sidebar-muted); }
+
+.bag-row--playing td { background: rgba(255, 255, 255, 0.04); }
+.bag-tag--play { background: var(--primary); color: var(--primary-foreground); }
+.bag-span { display: block; font-size: 11px; color: #ffb300; }

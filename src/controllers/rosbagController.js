@@ -51,3 +51,23 @@ export function deleteBag(name) {
 export function bagDownloadUrl(name) {
   return `${CONFIG.bagServerUrl}/bags/${encodeURIComponent(name)}.tar`;
 }
+
+export function playBag(name, rate, loop) {
+  publishBagCommand({ action: "play", name, rate, loop });
+}
+
+export function stopPlayback() {
+  publishBagCommand({ action: "stop_play" });
+}
+
+export function pausePlayback(paused) {
+  publishBagCommand({ action: paused ? "pause" : "resume" });
+}
+
+export function setPlaybackRate(rate) {
+  publishBagCommand({ action: "set_rate", rate });
+}
+
+export function seekPlayback(positionS) {
+  publishBagCommand({ action: "seek", position_s: positionS });
+}

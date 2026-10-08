@@ -899,6 +899,95 @@
 
                     <section class="bag-card">
                         <div class="bag-card-header">
+                            <h2>Playback</h2>
+                            <span
+                                class="bag-state"
+                                id="bag-play-state"
+                                data-state="offline"
+                            >
+                                <span class="bag-dot"></span>
+                                <span id="bag-play-state-text">Recorder offline</span>
+                            </span>
+                        </div>
+
+                        <div class="bag-player">
+                            <div class="bag-player-buttons">
+                                <button
+                                    id="bag-play-pause"
+                                    class="bag-icon-btn bag-icon-btn--main"
+                                    type="button"
+                                    data-action="pause"
+                                    aria-label="Pause"
+                                    disabled
+                                >
+                                    <svg class="bag-icon bag-icon--pause" viewBox="0 0 24 24" aria-hidden="true">
+                                        <rect x="6" y="5" width="4" height="14" rx="1" />
+                                        <rect x="14" y="5" width="4" height="14" rx="1" />
+                                    </svg>
+                                    <svg class="bag-icon bag-icon--resume" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" />
+                                    </svg>
+                                </button>
+                                <button
+                                    id="bag-play-stop"
+                                    class="bag-icon-btn"
+                                    type="button"
+                                    aria-label="Stop"
+                                    title="Stop"
+                                    disabled
+                                >
+                                    <svg class="bag-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                        <rect x="6" y="6" width="12" height="12" rx="2" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <div class="bag-player-main">
+                                <div class="bag-player-info">
+                                    <span class="bag-play-name" id="bag-play-name"></span>
+                                    <span class="bag-play-clock">
+                                        <span id="bag-play-pos">00:00</span>
+                                        <span class="bag-play-clock-sep">/</span>
+                                        <span id="bag-play-dur">00:00</span>
+                                    </span>
+                                </div>
+                                <input
+                                    id="bag-play-seek"
+                                    class="bag-play-seek"
+                                    type="range"
+                                    min="0"
+                                    max="0"
+                                    step="0.01"
+                                    value="0"
+                                    aria-label="Playback position"
+                                    disabled
+                                />
+                            </div>
+                        </div>
+
+                        <div class="bag-play-controls">
+                            <div class="bag-play-option">
+                                <span>Speed</span>
+                                <div class="bag-segmented" id="bag-play-rate" role="group" aria-label="Playback speed">
+                                    <button type="button" data-rate="0.25">0.25×</button>
+                                    <button type="button" data-rate="0.5">0.5×</button>
+                                    <button type="button" data-rate="1">1×</button>
+                                    <button type="button" data-rate="2">2×</button>
+                                    <button type="button" data-rate="4">4×</button>
+                                </div>
+                            </div>
+                            <label class="bag-play-option bag-toggle">
+                                <input id="bag-play-loop" type="checkbox" />
+                                <span class="bag-toggle-track" aria-hidden="true"></span>
+                                <span>Loop</span>
+                            </label>
+                        </div>
+
+                        <p class="bag-play-note" id="bag-play-note"></p>
+                    </section>
+
+                    <section class="bag-card">
+                        <div class="bag-card-header">
                             <h2>Recorded bags</h2>
                             <span class="bag-output-dir" id="bag-output-dir"></span>
                         </div>

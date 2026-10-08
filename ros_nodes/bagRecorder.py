@@ -1,19 +1,27 @@
-"""Records rosbags for the web client's Rosbag page.
+"""Records and plays rosbags for the web client's Rosbag page.
 
   * /fbot_webclient/bag/command (std_msgs/String JSON):
         {"action": "start", "name": "optional", "topics": [...]}, {"action": "stop"}
-        or {"action": "delete", "name": "..."}
+        or {"action": "delete", "name": "..."};
+        playback: {"action": "play", "name": "...", "rate": 1.0, "loop": false},
+        {"action": "stop_play"}, {"action": "pause"}, {"action": "resume"},
+        {"action": "set_rate", "rate": 2.0} or {"action": "seek", "position_s": 12.5}
   * /fbot_webclient/bag/status (std_msgs/String JSON, 1 Hz and on changes):
-        recording state, limits, presets, topics being published, recorded bags and free disk space.
+        recording and playback state, limits, presets, topics being published,
+        recorded bags and free disk space.
   * HTTP on --http-port (default 8182): GET /bags/<name>.tar downloads a bag.
 
-Recording runs `ros2 bag record` in its own process group and stops it with
-SIGINT, so the bag is closed properly. Starting and stopping never block the
-node: the process is watched from a timer. Recording stops by itself at the
-limits in the config. Config: ros_nodes/config/bag_recorder.yaml (override with --config).
+Recording runs `ros2 bag record` (playback `ros2 bag play`) in its own process
+group and stops it with SIGINT, so the bag is closed properly. Starting and
+stopping never block the node: the processes are watched from a timer.
+Recording stops by itself at the limits in the config. Playback never replays
+the topics in play_blocked_topics (commands that would move the robot), and is
+paused, resumed, sped up and seeked through the player's own services.
+Config: ros_nodes/config/bag_recorder.yaml (override with --config).
 """
 
 import argparse
+import fnmatch
 import json
 import os
 import re
@@ -30,8 +38,10 @@ from urllib.parse import unquote
 
 import rclpy
 import yaml
+from builtin_interfaces.msg import Time
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
+from rosbag2_interfaces.srv import Pause, Resume, Seek, SetRate
 from std_msgs.msg import String
 
 DEFAULT_CONFIG = Path(__file__).resolve().parent / "config" / "bag_recorder.yaml"
@@ -42,6 +52,10 @@ TICK_S = 0.25
 STATUS_PERIOD_S = 1.0
 MAX_BAGS_LISTED = 50
 BAG_NAME = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$")
+PLAYER_NODE = "/rosbag2_player"  # node started by `ros2 bag play`
+MIN_RATE, MAX_RATE = 0.05, 20.0
+# Never replayed whatever the config says: they would drive this page.
+ALWAYS_BLOCKED = ["/fbot_webclient/bag/*"]
 
 
 def _dir_size(path):
@@ -55,6 +69,7 @@ def _bag_info(path):
             info = yaml.safe_load(f)["rosbag2_bagfile_information"]
         return {
             "duration_s": info["duration"]["nanoseconds"] / 1e9,
+            "start_ns": info["starting_time"]["nanoseconds_since_epoch"],
             "message_count": info["message_count"],
             "topics": sorted(t["topic_metadata"]["name"] for t in info["topics_with_message_count"]),
         }
@@ -64,6 +79,38 @@ def _bag_info(path):
 
 def _gb(value):
     return f"{value / 1e9:.1f} GB"
+
+
+def _rate(value):
+    try:
+        return min(max(float(value), MIN_RATE), MAX_RATE)
+    except (TypeError, ValueError):
+        return 1.0
+
+
+def _spawn(cmd, log):
+    return subprocess.Popen(
+        cmd, stdout=log, stderr=subprocess.STDOUT, start_new_session=True,
+        # Started with & from start.sh, this node may have SIGINT ignored;
+        # the child must not inherit that, SIGINT is how it closes the bag.
+        preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_DFL),
+    )
+
+
+def _kill(process, sig):
+    try:
+        os.killpg(process.pid, sig)
+    except ProcessLookupError:
+        pass  # already gone; the timer reports it
+
+
+def _close(process):
+    """Blocking stop, for shutdown."""
+    _kill(process, signal.SIGINT)
+    try:
+        process.wait(timeout=STOP_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        _kill(process, signal.SIGKILL)
 
 
 class BagRecorder(Node):
@@ -85,8 +132,19 @@ class BagRecorder(Node):
         self._message = ""  # last result shown on the page (e.g. why a start failed)
         self._message_error = False
         self._bag_cache = {}  # name -> (dir mtime, entry); finished bags don't change
+        self._play_blocked = ALWAYS_BLOCKED + list(config.get("play_blocked_topics", []))
+        # {name, process, log, topics, skipped, duration_s, start_ns, rate, loop, paused,
+        #  position_s, state: starting|playing|stopping, deadline, last_tick}
+        self._player = None
         self._last_status = 0.0
         self.download_port = None  # set once the HTTP server is up
+
+        self._player_srv = {
+            "pause": self.create_client(Pause, f"{PLAYER_NODE}/pause"),
+            "resume": self.create_client(Resume, f"{PLAYER_NODE}/resume"),
+            "set_rate": self.create_client(SetRate, f"{PLAYER_NODE}/set_rate"),
+            "seek": self.create_client(Seek, f"{PLAYER_NODE}/seek"),
+        }
 
         self._status_pub = self.create_publisher(String, "/fbot_webclient/bag/status", 10)
         self.create_subscription(String, "/fbot_webclient/bag/command", self._on_command, 10)
@@ -104,6 +162,12 @@ class BagRecorder(Node):
             self._request_stop()
         elif cmd.get("action") == "delete":
             self._delete(cmd.get("name"))
+        elif cmd.get("action") == "play":
+            self._play(cmd.get("name"), _rate(cmd.get("rate", 1.0)), bool(cmd.get("loop")))
+        elif cmd.get("action") == "stop_play":
+            self._stop_play()
+        elif cmd.get("action") in ("pause", "resume", "set_rate", "seek"):
+            self._control_player(cmd)
         self._publish_status()
 
     def _say(self, message, error=False):
@@ -140,13 +204,7 @@ class BagRecorder(Node):
             return
 
         self._log = open(self._output_dir / f".{name}.log", "w")
-        self._process = subprocess.Popen(
-            ["ros2", "bag", "record", "-o", str(path), *topics],
-            stdout=self._log, stderr=subprocess.STDOUT, start_new_session=True,
-            # Started with & from start.sh, this node may have SIGINT ignored;
-            # the recorder must not inherit that, SIGINT is how it closes the bag.
-            preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_DFL),
-        )
+        self._process = _spawn(["ros2", "bag", "record", "-o", str(path), *topics], self._log)
         self._recording = {"name": name, "path": str(path), "topics": topics, "started_at": time.time(),
                            "state": "starting", "stop_reason": None}
         self._deadline = time.monotonic() + START_CHECK_S
@@ -160,10 +218,7 @@ class BagRecorder(Node):
         self._recording["stop_reason"] = reason
         self._deadline = time.monotonic() + STOP_TIMEOUT_S
         self._say(f"Stopping {self._recording['name']}" + (f": {reason}" if reason else ""), error=bool(reason))
-        try:
-            os.killpg(self._process.pid, signal.SIGINT)
-        except ProcessLookupError:
-            pass  # already gone; _tick reports it
+        _kill(self._process, signal.SIGINT)
 
     def _limit_reached(self):
         rec, limits = self._recording, self._limits
@@ -212,30 +267,177 @@ class BagRecorder(Node):
                 self._end_process()
                 changed = True
             elif now >= self._deadline:
-                os.killpg(self._process.pid, signal.SIGKILL)
+                _kill(self._process, signal.SIGKILL)
                 self._say(f"{rec['name']}: recorder didn't stop in time and was killed (bag may be incomplete)",
                           error=True)
                 self.get_logger().error(self._message)
                 self._end_process()
                 changed = True
+        changed = self._tick_player() or changed
         if changed or time.monotonic() - self._last_status >= STATUS_PERIOD_S:
             self._publish_status()
 
     def _end_process(self):
+        rec = self._recording
+        if rec and Path(rec["path"]).is_dir():
+            # metadata.yaml only has the span between the first and last message,
+            # which is much shorter than the recording when topics are sparse.
+            with open(self._output_dir / f".{rec['name']}.rec.json", "w") as f:
+                json.dump({"recorded_s": time.time() - rec["started_at"]}, f)
         if self._log:
             self._log.close()
         self._process = None
         self._log = None
         self._recording = None
 
+    def _is_blocked(self, topic):
+        return any(fnmatch.fnmatchcase(topic, pattern) for pattern in self._play_blocked)
+
+    def _play(self, name, rate, loop):
+        if self._player:
+            self._say(f"Already playing {self._player['name']}", error=True)
+            return
+        path = self.bag_path(name)
+        if path is None:
+            self._say(f"No finished bag named '{name}'", error=True)
+            return
+        info = _bag_info(path)
+        if not info:
+            self._say(f"{name} has no metadata.yaml (recording was cut off), it can't be played", error=True)
+            return
+        topics = [t for t in info["topics"] if not self._is_blocked(t)]
+        if not topics:
+            self._say(f"Nothing to play: {name} only has blocked topics ({', '.join(info['topics'])}), "
+                      "see play_blocked_topics in bag_recorder.yaml", error=True)
+            return
+
+        log = open(self._output_dir / f".{name}.play.log", "w")
+        cmd = ["ros2", "bag", "play", str(path), "--rate", f"{rate:g}", "--disable-keyboard-controls",
+               "--topics", *topics]
+        if loop:
+            cmd.append("--loop")
+        now = time.monotonic()
+        self._player = {"name": name, "process": _spawn(cmd, log), "log": log, "topics": topics,
+                        "skipped": [t for t in info["topics"] if t not in topics],
+                        "duration_s": info["duration_s"], "start_ns": info["start_ns"], "rate": rate,
+                        "loop": loop, "paused": False, "position_s": 0.0, "state": "starting",
+                        "deadline": now + START_CHECK_S, "last_tick": now}
+        self._say(f"Starting playback of {name}")
+
+    def _stop_play(self):
+        player = self._player
+        if not player or player["state"] == "stopping":
+            return
+        player["state"] = "stopping"
+        player["deadline"] = time.monotonic() + STOP_TIMEOUT_S
+        self._say(f"Stopping playback of {player['name']}")
+        _kill(player["process"], signal.SIGINT)
+
+    def _control_player(self, cmd):
+        """Pause, resume, set_rate and seek go through the player's services; state changes on the reply."""
+        player = self._player
+        action = cmd["action"]
+        if not player or player["state"] != "playing":
+            self._say("Nothing is playing", error=True)
+            return
+        client = self._player_srv[action]
+        if not client.service_is_ready():
+            self._say(f"Player service {client.srv_name} isn't available", error=True)
+            return
+        if action == "set_rate":
+            rate = _rate(cmd.get("rate"))
+            request = SetRate.Request(rate=rate)
+        elif action == "seek":
+            try:
+                position = min(max(float(cmd.get("position_s")), 0.0), player["duration_s"])
+            except (TypeError, ValueError):
+                return
+            stamp = player["start_ns"] + int(position * 1e9)
+            request = Seek.Request(time=Time(sec=stamp // 10**9, nanosec=stamp % 10**9))
+        else:
+            request = client.srv_type.Request()
+
+        def done(future):
+            if self._player is not player:
+                return  # playback ended meanwhile
+            response = future.result()
+            if getattr(response, "success", True) is False:
+                self._say(f"Player refused {action.replace('_', ' ')}", error=True)
+            elif action == "pause":
+                player["paused"] = True
+            elif action == "resume":
+                player["paused"] = False
+            elif action == "set_rate":
+                player["rate"] = rate
+            else:
+                player["position_s"] = position
+            self._publish_status()
+
+        client.call_async(request).add_done_callback(done)
+
+    def _tick_player(self):
+        """Watches the play process like _tick watches the recorder; returns whether the state changed."""
+        player = self._player
+        if not player:
+            return False
+        now = time.monotonic()
+        exited = player["process"].poll() is not None
+        if player["state"] == "playing" and not player["paused"]:
+            # Estimated: the player has no position topic.
+            position = player["position_s"] + (now - player["last_tick"]) * player["rate"]
+            duration = player["duration_s"]
+            player["position_s"] = position % duration if player["loop"] and duration else min(position, duration)
+        player["last_tick"] = now
+
+        if player["state"] == "starting":
+            if exited and player["process"].returncode == 0:
+                # Bags whose messages span less than START_CHECK_S end before the start check.
+                self._say(f"Finished playing {player['name']}")
+            elif exited:
+                self._say(f"ros2 bag play failed to start (see {player['log'].name})", error=True)
+            elif now >= player["deadline"]:
+                player["state"] = "playing"
+                self._say(f"Playing {player['name']}")
+                self.get_logger().info(f"Playing {player['name']} ({len(player['topics'])} topics)")
+                return True
+            else:
+                return False
+        elif player["state"] == "playing":
+            if not exited:
+                return False
+            if player["process"].returncode == 0:
+                self._say(f"Finished playing {player['name']}")
+            else:
+                self._say(f"{player['name']}: ros2 bag play exited with an error (see {player['log'].name})",
+                          error=True)
+        elif exited:  # stopping
+            self._say(f"Stopped playing {player['name']}")
+        elif now >= player["deadline"]:
+            _kill(player["process"], signal.SIGKILL)
+            self._say(f"{player['name']}: player didn't stop in time and was killed", error=True)
+        else:
+            return False
+        self.get_logger().info(self._message)
+        self._end_player()
+        return True
+
+    def _end_player(self):
+        self._player["log"].close()
+        self._player = None
+
     def _delete(self, name):
         path = self.bag_path(name)
         if path is None:
             self._say(f"No finished bag named '{name}'", error=True)
             return
+        if self._player and self._player["name"] == name:
+            self._say(f"Stop playing {name} before deleting it", error=True)
+            return
         try:
             shutil.rmtree(path)
             (self._output_dir / f".{name}.log").unlink(missing_ok=True)
+            (self._output_dir / f".{name}.play.log").unlink(missing_ok=True)
+            (self._output_dir / f".{name}.rec.json").unlink(missing_ok=True)
         except OSError as e:
             self._say(f"Couldn't delete {name}: {e}", error=True)
             return
@@ -254,10 +456,18 @@ class BagRecorder(Node):
             cached = self._bag_cache.get(path.name)
             if not cached or cached[0] != mtime:
                 cached = (mtime, {"name": path.name, "created": mtime / 1e9, "size_bytes": _dir_size(path),
-                                  **_bag_info(path)})
+                                  **_bag_info(path), **self._recorded(path.name)})
             cache[path.name] = cached
         self._bag_cache = cache
         return [entry for _, entry in cache.values()]
+
+    def _recorded(self, name):
+        """How long the bag was recorded for (bags from before .rec.json existed have none)."""
+        try:
+            with open(self._output_dir / f".{name}.rec.json") as f:
+                return {"recorded_s": float(json.load(f)["recorded_s"])}
+        except (OSError, ValueError, KeyError, TypeError):
+            return {}
 
     def _publish_status(self):
         self._last_status = time.monotonic()
@@ -266,8 +476,13 @@ class BagRecorder(Node):
             recording = {**self._recording,
                          "duration_s": time.time() - self._recording["started_at"],
                          "size_bytes": _dir_size(self._recording["path"])}
+        playback = None
+        if self._player:
+            playback = {k: v for k, v in self._player.items() if k not in ("process", "log", "deadline", "last_tick")}
         self._status_pub.publish(String(data=json.dumps({
             "recording": recording,
+            "playback": playback,
+            "play_blocked": self._play_blocked,
             "message": self._message,
             "message_error": self._message_error,
             "output_dir": str(self._output_dir),
@@ -280,17 +495,13 @@ class BagRecorder(Node):
         })))
 
     def shutdown(self):
-        """Closes a running recording before exiting (blocking, unlike the stop command)."""
-        if not self._process:
-            return
-        try:
-            os.killpg(self._process.pid, signal.SIGINT)
-            self._process.wait(timeout=STOP_TIMEOUT_S)
-        except subprocess.TimeoutExpired:
-            os.killpg(self._process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        self._end_process()
+        """Closes a running recording and playback before exiting (blocking, unlike the stop commands)."""
+        if self._player:
+            _close(self._player["process"])
+            self._end_player()
+        if self._process:
+            _close(self._process)
+            self._end_process()
 
 
 class _DownloadHandler(BaseHTTPRequestHandler):

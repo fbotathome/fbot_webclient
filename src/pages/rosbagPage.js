@@ -4,6 +4,11 @@ import {
   stopRecording,
   deleteBag,
   bagDownloadUrl,
+  playBag,
+  stopPlayback,
+  pausePlayback,
+  setPlaybackRate,
+  seekPlayback,
 } from "../controllers/rosbagController.js";
 import { initRosbagView, renderRosbag, getBagName, clearBagName } from "../views/rosbagView.js";
 
@@ -19,7 +24,9 @@ let _status = null;
 let _selected = new Set(); // kept across visits, to record the same topics again
 let _filter = "";
 let _activePreset = null; // the preset clicked last, until the selection is changed by hand
-let _pending = null; // "start" | "stop" while waiting for the recorder
+let _pending = null; // "start" | "stop" | "play" | "stop_play" while waiting for the recorder
+let _playRate = 1; // for the next playback; while playing, the player's rate is shown
+let _playLoop = false;
 let _wasRecording = false;
 
 function _render() {
@@ -30,6 +37,8 @@ function _render() {
     filter: _filter,
     pending: _pending,
     activePreset: _activePreset,
+    playRate: _playRate,
+    playLoop: _playLoop,
   });
 }
 
@@ -100,6 +109,29 @@ const _handlers = {
   },
   onDelete(name) {
     deleteBag(name);
+  },
+  onPlay(name) {
+    _setPending("play");
+    playBag(name, _playRate, _playLoop);
+  },
+  onStopPlay() {
+    _setPending("stop_play");
+    stopPlayback();
+  },
+  onPause(paused) {
+    pausePlayback(paused);
+  },
+  onRate(rate) {
+    _playRate = rate;
+    if (_status?.playback) setPlaybackRate(rate);
+    _render();
+  },
+  onLoop(loop) {
+    _playLoop = loop;
+    _render();
+  },
+  onSeek(seconds) {
+    seekPlayback(seconds);
   },
 };
 
