@@ -1,0 +1,23 @@
+# Configuration of ros_nodes/pickObjectBridge.py (plain YAML, not ROS params).
+# Defaults match BORIS v2 (fbot_behavior refactor/boris_v2, fbot_vision main).
+
+# Frame the ManipulationTask object_pose is expressed in. fbot_behavior's
+# ManipulationTaskMachine transforms detections to link_base (the xArm base)
+# before calling /fbot_manipulator/manipulation_task, so do the same here.
+target_frame: link_base
+
+action_name: /fbot_manipulator/manipulation_task
+
+# Cameras offered in the web client's "Pick Object" card. The first one is
+# selected by default. detections_topic is a fbot_vision_msgs/Detection3DArray
+# (fbot_recognition yolov8 node); image_topic is the image that detector runs
+# on, streamed to the browser through web_video_server so the boxes line up.
+cameras:
+  - id: realsense
+    name: Wrist (RealSense)
+    detections_topic: /fbot_vision/realsense/object_recognition
+    image_topic: /realsense/color/image_raw
+  - id: femtobolt
+    name: Head (Femto Bolt)
+    detections_topic: /fbot_vision/femtobolt/object_recognition
+    image_topic: /femtobolt/color/image_raw
