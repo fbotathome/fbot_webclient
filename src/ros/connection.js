@@ -637,3 +637,41 @@ export function callLogHistory() {
     );
   });
 }
+
+// Tasks (ros_nodes/taskRunner.py).
+const _taskStatus = createTopic("/fbot_webclient/tasks/status", "std_msgs/String");
+export function subscribeTaskStatus(callback) {
+  return _subscribeJson(_taskStatus, callback, "task status");
+}
+
+const _taskOutput = createTopic("/fbot_webclient/tasks/output", "std_msgs/String");
+export function subscribeTaskOutput(callback) {
+  return _subscribeJson(_taskOutput, callback, "task output");
+}
+
+const _taskCommand = createPublisher("/fbot_webclient/tasks/command", "std_msgs/String");
+export function publishTaskCommand(command) {
+  _taskCommand.publish(new ROSLIB.Message({ data: JSON.stringify(command) }));
+}
+
+const _taskHistory = createService("/fbot_webclient/tasks/history", "std_srvs/Trigger");
+export function callTaskHistory() {
+  return new Promise((resolve, reject) => {
+    _taskHistory.callService(
+      new ROSLIB.ServiceRequest({}),
+      (result) => resolve(JSON.parse(result.message).lines),
+      reject,
+    );
+  });
+}
+
+const _taskLaunchFiles = createService("/fbot_webclient/tasks/launch_files", "std_srvs/Trigger");
+export function callTaskLaunchFiles() {
+  return new Promise((resolve, reject) => {
+    _taskLaunchFiles.callService(
+      new ROSLIB.ServiceRequest({}),
+      (result) => resolve(JSON.parse(result.message)),
+      reject,
+    );
+  });
+}

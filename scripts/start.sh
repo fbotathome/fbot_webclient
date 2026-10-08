@@ -32,8 +32,8 @@ echo "Access: $ACCESS_URL"
 
 cleanup() {
   echo "\nShutting down services..."
-  kill $BRIDGE_PID $VIDEO_PID $STATUS_PID $PICK_PID $LOGS_PID $POWER_PID $HTTP_PID 2>/dev/null
-  wait $BRIDGE_PID $VIDEO_PID $STATUS_PID $PICK_PID $LOGS_PID $POWER_PID $HTTP_PID 2>/dev/null
+  kill $BRIDGE_PID $VIDEO_PID $STATUS_PID $PICK_PID $LOGS_PID $TASKS_PID $POWER_PID $HTTP_PID 2>/dev/null
+  wait $BRIDGE_PID $VIDEO_PID $STATUS_PID $PICK_PID $LOGS_PID $TASKS_PID $POWER_PID $HTTP_PID 2>/dev/null
   for port in $HTTP_PORT $WEB_VIDEO_PORT $ROSBRIDGE_PORT; do
     fuser -k $port/tcp 2>/dev/null || true
   done
@@ -56,6 +56,11 @@ PICK_PID=$!
 
 python3 "$PROJECT_DIR/ros_nodes/logAggregator.py" &
 LOGS_PID=$!
+
+# Runs fbot_behavior bringups and tasks (ros_nodes/config/task_runner.yaml); needs the
+# workspace sourced (~/fbot_ws/install/setup.bash) before this script.
+python3 "$PROJECT_DIR/ros_nodes/taskRunner.py" &
+TASKS_PID=$!
 
 if [ "$POWER_MACHINE" != "none" ]; then
   python3 "$PROJECT_DIR/ros_nodes/powerNode.py" --machine "$POWER_MACHINE" --shutdown-delay 5 &

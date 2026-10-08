@@ -10,6 +10,7 @@ import {
   initNavigation,
   destroyNavigation,
 } from "./pages/navigationPage.js";
+import { initTasks, destroyTasks } from "./pages/tasksPage.js";
 
 const pageHandlers = {
   dashboard: { init: initDashboard, destroy: destroyDashboard },
@@ -18,6 +19,7 @@ const pageHandlers = {
   vision: { init: initVision, destroy: destroyVision },
   emotions: { init: initEmotions, destroy: destroyEmotions },
   speech: { init: initSpeech, destroy: destroySpeech },
+  tasks: { init: initTasks, destroy: destroyTasks },
 };
 
 let currentPage = null;

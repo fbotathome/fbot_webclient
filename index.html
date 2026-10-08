@@ -11,6 +11,7 @@
         <link rel="stylesheet" href="css/manipulator.css" />
         <link rel="stylesheet" href="css/vision.css" />
         <link rel="stylesheet" href="css/emotions.css" />
+        <link rel="stylesheet" href="css/tasks.css" />
         <title>Web Client</title>
         <link rel="icon" type="image/svg+xml" href="assets/logo/Logotipo.svg" />
         <script type="importmap">
@@ -36,6 +37,10 @@
                     <a href="#" class="active" data-page="dashboard">
                         <img src="assets/sidebar/grid.svg" class="menu-icon" />
                         <span>Dashboard</span>
+                    </a>
+                    <a href="#" data-page="tasks">
+                        <img src="assets/sidebar/play-circle.svg" class="menu-icon" />
+                        <span>Tasks</span>
                     </a>
                     <a href="#" data-page="navigation">
                         <img src="assets/sidebar/move.svg" class="menu-icon" />
@@ -804,6 +809,145 @@
                     >
                         No command sent yet
                     </p>
+                </section>
+                <section id="page-tasks" class="page">
+                    <section class="task-card">
+                        <div class="task-card-header">
+                            <div class="task-tabs task-mode" role="tablist" id="task-mode" aria-label="View">
+                                <button type="button" role="tab" data-mode="tasks">Tasks</button>
+                                <button type="button" role="tab" data-mode="launches">Launches</button>
+                            </div>
+                            <span class="task-state" id="task-runner-state" data-state="offline">
+                                <span class="task-dot"></span>
+                                <span id="task-runner-text">Runner offline</span>
+                            </span>
+                        </div>
+
+                        <div class="task-layout" id="task-layout">
+                            <div class="task-list-col" id="task-list-col">
+                                <input
+                                    id="task-filter"
+                                    class="task-input"
+                                    type="search"
+                                    placeholder="Filter tasks…"
+                                    autocomplete="off"
+                                />
+                                <ul class="task-list" id="task-list"></ul>
+                            </div>
+
+                            <div class="task-detail">
+                                <div class="task-detail-header">
+                                    <h3 id="task-title">Choose a task</h3>
+                                    <span class="task-mono" id="task-subtitle"></span>
+                                </div>
+
+                                <div class="task-block">
+                                    <div class="task-block-head">
+                                        <span class="task-block-num" id="task-comp-num">1</span>
+                                        <span class="task-block-title" id="task-comp-title">Bringup</span>
+                                        <span class="task-uptime" id="task-comp-summary"></span>
+                                        <span class="task-block-spacer"></span>
+                                        <button id="task-start-all" class="task-btn task-btn--primary task-btn--sm" type="button" disabled>
+                                            Start all
+                                        </button>
+                                        <button id="task-stop-all" class="task-btn task-btn--danger task-btn--sm" type="button" disabled>
+                                            Stop all
+                                        </button>
+                                    </div>
+                                    <p class="task-hint" id="task-comp-hint"></p>
+                                    <ul class="task-comps" id="task-comps"></ul>
+                                    <div class="task-extra" id="task-extra">
+                                        <p class="task-extra-title" id="task-extra-title">Also running (not in this task)</p>
+                                        <ul class="task-comps" id="task-extra-list"></ul>
+                                    </div>
+                                    <form class="task-custom" id="task-custom" autocomplete="off">
+                                        <p class="task-extra-title">Start any launch file</p>
+                                        <div class="task-custom-fields">
+                                            <input
+                                                id="task-custom-pkg"
+                                                class="task-input"
+                                                list="task-pkg-list"
+                                                placeholder="package"
+                                                spellcheck="false"
+                                                aria-label="Package"
+                                            />
+                                            <datalist id="task-pkg-list"></datalist>
+                                            <input
+                                                id="task-custom-file"
+                                                class="task-input"
+                                                list="task-file-list"
+                                                placeholder="file.launch.py"
+                                                spellcheck="false"
+                                                aria-label="Launch file"
+                                            />
+                                            <datalist id="task-file-list"></datalist>
+                                            <input
+                                                id="task-custom-args"
+                                                class="task-input task-custom-args"
+                                                placeholder="arguments, e.g. use_sim_time:=true"
+                                                spellcheck="false"
+                                                aria-label="Launch arguments"
+                                            />
+                                            <button id="task-custom-start" class="task-btn task-btn--primary task-btn--sm" type="submit">
+                                                Start
+                                            </button>
+                                        </div>
+                                        <p class="task-hint" id="task-custom-hint"></p>
+                                    </form>
+                                    <div class="task-add" id="task-add">
+                                        <select id="task-add-select" class="task-input">
+                                            <option value="">Start another component…</option>
+                                        </select>
+                                        <button id="task-add-btn" class="dash-btn" type="button" disabled>Start</button>
+                                    </div>
+                                </div>
+
+                                <div class="task-block" id="task-steps-block">
+                                    <div class="task-block-head">
+                                        <span class="task-block-num">2</span>
+                                        <span class="task-block-title">Task</span>
+                                    </div>
+                                    <p class="task-hint" id="task-run-hint"></p>
+                                    <ul class="task-steps" id="task-steps"></ul>
+                                </div>
+
+                                <p class="task-message" id="task-message" aria-live="polite"></p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="task-card">
+                        <div class="task-card-header">
+                            <div class="task-tabs" role="tablist" id="task-tabs">
+                                <button type="button" role="tab" data-source="components">
+                                    Bringup <span class="task-tab-count" id="task-count-components"></span>
+                                </button>
+                                <button type="button" role="tab" data-source="run">
+                                    Task <span class="task-tab-count" id="task-count-run"></span>
+                                </button>
+                            </div>
+                            <div class="task-output-actions">
+                                <select id="task-output-component" class="task-input" aria-label="Component">
+                                    <option value="">All components</option>
+                                </select>
+                                <input
+                                    id="task-output-filter"
+                                    class="task-input"
+                                    type="search"
+                                    placeholder="Filter output…"
+                                    autocomplete="off"
+                                />
+                                <button id="task-output-clear" class="dash-btn" type="button">Clear</button>
+                            </div>
+                        </div>
+                        <div class="task-output-wrap">
+                            <div class="task-output" id="task-output" role="log"></div>
+                            <button id="task-output-jump" class="task-jump" type="button" hidden>
+                                ↓ Latest
+                            </button>
+                        </div>
+                        <p class="task-output-note" id="task-output-note"></p>
+                    </section>
                 </section>
             </main>
         </div>
