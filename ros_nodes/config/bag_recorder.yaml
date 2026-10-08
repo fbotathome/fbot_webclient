@@ -1,0 +1,26 @@
+# ros_nodes/bagRecorder.py configuration (plain YAML, not ROS params); BORIS v2 topics.
+
+# Where bags are written (~ is expanded).
+output_dir: ~/bags
+
+# A recording stops by itself at any of these (0 = no limit); no recording
+# starts with less than min_free_gb free.
+min_free_gb: 5
+max_duration_min: 30
+max_size_gb: 20
+
+# Topic sets offered on the Rosbag page. Camera images are large: record them
+# only when needed.
+presets:
+  navigation:
+    name: Navigation
+    topics: [/scan, /tf, /tf_static, /odom, /odometry/filtered, /amcl_pose, /plan, /goal_pose, /cmd_vel, /map, /rosout]
+  manipulation:
+    name: Manipulation
+    topics: [/joint_states, /tf, /tf_static, /fbot_webclient/pick/status, /rosout]
+  vision:
+    name: Vision (images, large)
+    topics: [/femtobolt/color/image_raw, /femtobolt/color/camera_info, /realsense/color/image_raw, /realsense/color/camera_info, /tf, /tf_static, /rosout]
+  logs:
+    name: Logs only
+    topics: [/rosout]

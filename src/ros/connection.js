@@ -637,3 +637,20 @@ export function callLogHistory() {
     );
   });
 }
+
+// Rosbag recording (ros_nodes/bagRecorder.py).
+const _bagStatus = createTopic("/fbot_webclient/bag/status", "std_msgs/String");
+export function subscribeBagStatus(callback) {
+  return trackSubscription(_bagStatus, (msg) => {
+    try {
+      callback(JSON.parse(msg.data));
+    } catch (e) {
+      console.error("[ROS] Bad bag status:", e);
+    }
+  });
+}
+
+const _bagCommand = createPublisher("/fbot_webclient/bag/command", "std_msgs/String");
+export function publishBagCommand(command) {
+  _bagCommand.publish(new ROSLIB.Message({ data: JSON.stringify(command) }));
+}

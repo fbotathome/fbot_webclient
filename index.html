@@ -11,6 +11,7 @@
         <link rel="stylesheet" href="css/manipulator.css" />
         <link rel="stylesheet" href="css/vision.css" />
         <link rel="stylesheet" href="css/emotions.css" />
+        <link rel="stylesheet" href="css/rosbag.css" />
         <title>Web Client</title>
         <link rel="icon" type="image/svg+xml" href="assets/logo/Logotipo.svg" />
         <script type="importmap">
@@ -65,6 +66,10 @@
                             class="menu-icon"
                         />
                         <span>Manipulator</span>
+                    </a>
+                    <a href="#" data-page="rosbag">
+                        <img src="assets/sidebar/disc.svg" class="menu-icon" />
+                        <span>Rosbag</span>
                     </a>
                 </div>
             </aside>
@@ -804,6 +809,119 @@
                     >
                         No command sent yet
                     </p>
+                </section>
+                <section id="page-rosbag" class="page">
+                    <section class="bag-card">
+                        <div class="bag-card-header">
+                            <h2>Recorder</h2>
+                            <span
+                                class="bag-state"
+                                id="bag-state"
+                                data-state="offline"
+                            >
+                                <span class="bag-dot"></span>
+                                <span id="bag-state-text">Recorder offline</span>
+                            </span>
+                        </div>
+
+                        <div class="bag-live" id="bag-live" hidden>
+                            <span class="bag-live-name" id="bag-live-name"></span>
+                            <span class="bag-live-time" id="bag-live-time"
+                                >00:00</span
+                            >
+                            <span class="bag-live-size" id="bag-live-size"></span>
+                            <span
+                                class="bag-live-limits"
+                                id="bag-live-limits"
+                            ></span>
+                        </div>
+
+                        <label class="bag-field">
+                            <span>Bag name</span>
+                            <input
+                                id="bag-name"
+                                class="bag-input"
+                                type="text"
+                                placeholder="Automatic (boris_date_time)"
+                                autocomplete="off"
+                                spellcheck="false"
+                            />
+                        </label>
+
+                        <div class="bag-field">
+                            <span>Presets</span>
+                            <div class="bag-presets" id="bag-presets"></div>
+                        </div>
+
+                        <div class="bag-field">
+                            <div class="bag-topics-header">
+                                <span>Topics</span>
+                                <span
+                                    class="bag-topic-count"
+                                    id="bag-topic-count"
+                                    >0 selected</span
+                                >
+                                <input
+                                    id="bag-filter"
+                                    class="bag-input bag-filter"
+                                    type="search"
+                                    placeholder="Filter…"
+                                    autocomplete="off"
+                                />
+                                <button id="bag-all" class="dash-btn" type="button">
+                                    All
+                                </button>
+                                <button id="bag-none" class="dash-btn" type="button">
+                                    None
+                                </button>
+                            </div>
+                            <ul class="bag-topics" id="bag-topics"></ul>
+                        </div>
+
+                        <div class="bag-actions">
+                            <button
+                                id="bag-record"
+                                class="bag-record"
+                                type="button"
+                                data-mode="record"
+                                disabled
+                            >
+                                Record
+                            </button>
+                            <p
+                                class="bag-message"
+                                id="bag-message"
+                                aria-live="polite"
+                            ></p>
+                            <span class="bag-disk" id="bag-disk"></span>
+                        </div>
+                    </section>
+
+                    <section class="bag-card">
+                        <div class="bag-card-header">
+                            <h2>Recorded bags</h2>
+                            <span class="bag-output-dir" id="bag-output-dir"></span>
+                        </div>
+                        <div class="bag-table-wrap">
+                            <table class="bag-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Created</th>
+                                        <th class="bag-num">Duration</th>
+                                        <th class="bag-num">Size</th>
+                                        <th class="bag-num">Messages</th>
+                                        <th class="bag-num">Topics</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bag-list"></tbody>
+                            </table>
+                        </div>
+                        <p class="bag-list-empty" id="bag-list-empty">
+                            No bags recorded yet
+                        </p>
+                    </section>
                 </section>
             </main>
         </div>
