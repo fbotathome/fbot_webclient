@@ -8,6 +8,7 @@ const LARGE_TYPE = /\/(Image|CompressedImage|PointCloud2)$/;
 const CONFIRM_WINDOW_MS = 5000;
 
 const _els = {};
+let _bagUrl = null; // name -> download link
 let _topicsKey = "";
 let _bagsKey = "";
 let _seeking = false; // while the seek bar is dragged, status updates don't move it
@@ -19,7 +20,7 @@ let _raf = 0;
 // ignored, so small differences between both estimates don't make it jump back and forth.
 const DRIFT_S = 0.75;
 
-export function formatBytes(bytes) {
+function formatBytes(bytes) {
   if (bytes == null) return "—";
   const units = ["B", "KB", "MB", "GB", "TB"];
   let value = bytes;
@@ -31,7 +32,7 @@ export function formatBytes(bytes) {
   return `${value.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
 }
 
-export function formatDuration(seconds) {
+function formatDuration(seconds) {
   if (seconds == null) return "—";
   const s = Math.floor(seconds);
   const hh = Math.floor(s / 3600);
@@ -85,7 +86,7 @@ export function initRosbagView(handlers, bagUrl) {
   _bagsKey = "";
   _seeking = false;
   _anchor = null;
-  _els.bagUrl = bagUrl;
+  _bagUrl = bagUrl;
 
   const listeners = [
     [_els["bag-record"], "click", () => (_els["bag-record"].dataset.mode === "stop" ? handlers.onStop() : handlers.onRecord())],
@@ -279,7 +280,7 @@ function _renderBags(bags, canDownload, message, canPlay, playing) {
       if (bag.message_count == null) play.title = "The recording was cut off, ros2 bag play can't open it";
       const download = _el("a", "dash-btn bag-download", "Download");
       if (canDownload) {
-        download.href = _els.bagUrl(bag.name);
+        download.href = _bagUrl(bag.name);
         download.download = `${bag.name}.tar`;
       } else {
         download.classList.add("bag-download--off");

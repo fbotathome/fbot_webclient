@@ -49,6 +49,15 @@
   animation: bag-blink 1s steps(2, start) infinite;
 }
 
+.bag-state[data-state="starting"],
+.bag-state[data-state="stopping"],
+.bag-state[data-state="paused"] { border-color: #ffb300; color: #ffb300; }
+.bag-state[data-state="starting"] .bag-dot,
+.bag-state[data-state="stopping"] .bag-dot,
+.bag-state[data-state="paused"] .bag-dot { background: #ffb300; }
+.bag-state[data-state="playing"] { border-color: var(--primary); }
+.bag-state[data-state="playing"] .bag-dot { background: var(--primary); }
+
 @keyframes bag-blink { to { visibility: hidden; } }
 
 .bag-live {
@@ -66,6 +75,7 @@
 .bag-live-name { font-weight: 600; word-break: break-all; }
 .bag-live-time { font-family: monospace; font-size: 28px; font-weight: 700; color: var(--foreground); }
 .bag-live-size { font-family: monospace; font-size: 16px; color: var(--sidebar-muted); }
+.bag-live-limits { margin-left: auto; font-size: 12px; color: var(--sidebar-muted); }
 
 .bag-field {
   display: flex;
@@ -104,6 +114,7 @@
 
 .bag-chip--active { background: var(--primary); color: var(--primary-foreground); font-weight: 600; }
 .bag-chip:disabled { opacity: 0.5; cursor: default; }
+.bag-chip-count { margin-left: 8px; font-size: 11px; opacity: 0.7; font-family: monospace; }
 
 .bag-topics-header {
   display: flex;
@@ -149,6 +160,7 @@
 
 .bag-tag--warn { background: rgba(255, 179, 0, 0.15); color: #ffb300; }
 .bag-tag--muted { background: rgba(255, 255, 255, 0.06); color: var(--sidebar-muted); margin-left: auto; }
+.bag-tag--play { background: var(--primary); color: var(--primary-foreground); }
 .bag-list-name .bag-tag { margin-left: 8px; }
 
 .bag-actions {
@@ -211,27 +223,15 @@
 .bag-list-name { font-family: monospace; }
 .bag-list-empty { font-size: 13px; color: var(--sidebar-muted); }
 .bag-list-empty[hidden] { display: none; }
-
-.bag-live-limits { margin-left: auto; font-size: 12px; color: var(--sidebar-muted); }
-
-.bag-state[data-state="starting"],
-.bag-state[data-state="stopping"] { border-color: #ffb300; color: #ffb300; }
-.bag-state[data-state="starting"] .bag-dot,
-.bag-state[data-state="stopping"] .bag-dot { background: #ffb300; }
+.bag-row--playing td { background: rgba(255, 255, 255, 0.04); }
+.bag-span { display: block; font-size: 11px; color: #ffb300; }
 
 .bag-actions-cell { text-align: right; }
 .bag-actions-cell .dash-btn { padding: 4px 12px; font-size: 12px; margin-left: 6px; display: inline-block; }
 .bag-download--off { opacity: 0.4; cursor: not-allowed; }
 .bag-delete--armed { background: var(--danger); border-color: var(--danger); color: var(--danger-foreground); }
 
-.bag-chip-count { margin-left: 8px; font-size: 11px; opacity: 0.7; font-family: monospace; }
-
 /* Playback */
-
-.bag-state[data-state="playing"] { border-color: var(--primary); }
-.bag-state[data-state="playing"] .bag-dot { background: var(--primary); }
-.bag-state[data-state="paused"] { border-color: #ffb300; color: #ffb300; }
-.bag-state[data-state="paused"] .bag-dot { background: #ffb300; }
 
 .bag-player { display: flex; align-items: center; gap: 18px; }
 .bag-player-buttons { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
@@ -400,6 +400,7 @@
 .bag-toggle input:checked + .bag-toggle-track::after { transform: translateX(14px); }
 .bag-toggle input:focus-visible + .bag-toggle-track { outline: 2px solid var(--primary); outline-offset: 2px; }
 .bag-toggle:has(input:disabled) { opacity: 0.5; cursor: default; }
+.bag-play-note { font-size: 12px; color: var(--sidebar-muted); }
 
 @media (max-width: 600px) {
   .bag-player { flex-direction: column; align-items: stretch; }
@@ -407,12 +408,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bag-icon-btn, .bag-play-seek, .bag-segmented button, .bag-toggle-track, .bag-toggle-track::after,
+  .bag-icon-btn, .bag-play-seek, .bag-segmented button, .bag-toggle-track, .bag-toggle-track::after { transition: none; }
   .bag-play-seek::-webkit-slider-thumb { transition: none; }
+  .bag-play-seek::-moz-range-thumb { transition: none; }
 }
-
-.bag-play-note { font-size: 12px; color: var(--sidebar-muted); }
-
-.bag-row--playing td { background: rgba(255, 255, 255, 0.04); }
-.bag-tag--play { background: var(--primary); color: var(--primary-foreground); }
-.bag-span { display: block; font-size: 11px; color: #ffb300; }
