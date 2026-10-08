@@ -1,26 +1,18 @@
-"""Power control for one of the robot's computers, for the web client's Dashboard.
-
-Run one per machine (Jetson, NUC, ...):
+"""Power control of one robot computer for the web client's Dashboard. One per machine:
 
     python3 ros_nodes/powerNode.py --machine jetson
-    python3 ros_nodes/powerNode.py --machine nuc --shutdown-delay 5   # the machine serving the web client: last
 
-  * /fbot_webclient/power/<machine>/status   std_msgs/String JSON, 1 Hz heartbeat:
-        {"machine", "hostname", "ip", "uptime_s", "can_shutdown", "dry_run"}
-    The page shows the machine Offline when heartbeats stop.
-  * /fbot_webclient/power/<machine>/shutdown std_srvs/Trigger
-        Replies first, then powers the machine off after --shutdown-delay seconds
-        (so the reply — and other machines' replies — still reach the page).
+  * /fbot_webclient/power/<machine>/status (std_msgs/String JSON): 1 Hz heartbeat;
+  * /fbot_webclient/power/<machine>/shutdown (std_srvs/Trigger): replies, then
+    powers off after --shutdown-delay seconds.
 
-Permission: the node never asks for a password. It runs
-`sudo -n systemctl poweroff`, which needs a sudoers rule on that machine, e.g.
+Powering off runs `sudo -n systemctl poweroff`, which needs a sudoers rule
 (visudo -f /etc/sudoers.d/fbot-power):
 
     <user> ALL=(root) NOPASSWD: /usr/bin/systemctl poweroff
 
-Without it, can_shutdown is false and the page disables the button instead of
-pretending. --dry-run does everything except powering off (and then stops
-heartbeats, as a real shutdown would) — for tests and demos.
+Without it, can_shutdown is false and the page disables the button.
+--dry-run does everything except powering off.
 """
 
 import argparse
@@ -110,7 +102,7 @@ class PowerNode(Node):
             return
         result = subprocess.run(POWEROFF_CMD, capture_output=True, text=True)
         if result.returncode != 0:
-            # Shouldn't happen (permission was checked); resume heartbeats so the page sees it's still up.
+            # Resume heartbeats so the page sees the machine is still up.
             self.get_logger().error(f"poweroff failed: {result.stderr.strip()}")
             self._shutting_down = False
 

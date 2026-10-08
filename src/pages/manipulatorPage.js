@@ -150,8 +150,7 @@ function _renderTargetConfirm() {
       (reachable ? "" : "Preview could not reach this pose. ") +
       _describeCollision(_collisionStatus);
   }
-  // MoveIt would reject a goal in collision anyway — don't let it be sent.
-  // If the check itself is unavailable, leave the decision to the planner.
+  // MoveIt rejects a goal in collision; if the check is unavailable, the planner decides.
   if (_targetConfirmBtn) {
     _targetConfirmBtn.disabled = _collisionStatus.state === "collision";
   }

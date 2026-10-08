@@ -47,8 +47,7 @@ function _renderCameras(cameras, camera) {
     if (camera) select.value = camera.id;
   }
 
-  // Only touch the <img> when the camera changes — re-setting src restarts
-  // the MJPEG stream.
+  // Re-setting src restarts the MJPEG stream, so only on a camera change.
   const topic = camera ? camera.image_topic : null;
   if (_els.img && topic !== _imageTopic) {
     _imageTopic = topic;
@@ -57,9 +56,8 @@ function _renderCameras(cameras, camera) {
   }
 }
 
-// Draws one clickable box per detection over the camera feed. The SVG uses
-// the detector's image size as its viewBox and the same "contain" fit as
-// the <img>, so bbox pixel coordinates line up with the video at any size.
+// One clickable box per detection. The SVG's viewBox is the detector's image size,
+// with the same "contain" fit as the <img>, so boxes line up at any size.
 export function render({ cameras, camera, frame, selection }) {
   _renderCameras(cameras, camera);
 
@@ -88,8 +86,7 @@ export function render({ cameras, camera, frame, selection }) {
     const group = document.createElementNS(SVG_NS, "g");
     group.classList.add("manip-pick-box");
     if (isSelected) group.classList.add("manip-pick-box--selected");
-    // pointerdown, not click: the overlay is rebuilt every detection frame,
-    // so the element pressed may already be gone by the time 'click' fires.
+    // pointerdown: the overlay is rebuilt every frame and may be gone by 'click'.
     group.addEventListener("pointerdown", () => _onSelect && _onSelect(det.index));
 
     const rect = document.createElementNS(SVG_NS, "rect");

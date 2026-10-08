@@ -41,8 +41,6 @@ function _cacheElements() {
   }
 }
 
-// ---- cards ---------------------------------------------------------------------
-
 function _setBar(el, percent, isBad) {
   if (!el) return;
   const p = Math.max(0, Math.min(100, Number(percent) || 0));
@@ -85,8 +83,6 @@ function _updateCards(data) {
   _renderFreshness();
 }
 
-// ---- connection / freshness ------------------------------------------------------
-
 function _renderFreshness() {
   const bar = _els["dash-connection"];
   const text = _els["dash-connection-text"];
@@ -112,8 +108,6 @@ function _renderFreshness() {
   text.textContent = message;
   _els["dash-cards"]?.classList.toggle("dash-cards--stale", state !== "ok" && _status !== null);
 }
-
-// ---- node / topic list -------------------------------------------------------------
 
 function _renderList() {
   const items = (_status?.[_openList] ?? []).slice().sort();
@@ -148,8 +142,6 @@ function _toggleList(which) {
     _renderList();
   }
 }
-
-// ---- power control -------------------------------------------------------------------
 
 function _formatUptime(seconds) {
   const d = Math.floor(seconds / 86400);
@@ -281,8 +273,6 @@ function _renderPower() {
     allButton.disabled = !_machines.some((m) => _powerStates[m.id]?.online && _powerStates[m.id]?.status?.can_shutdown);
   }
 }
-
-// ---- lifecycle ---------------------------------------------------------------------
 
 export async function initDashboard() {
   const session = ++_session;

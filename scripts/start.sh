@@ -3,10 +3,8 @@
 ROSBRIDGE_PORT=${ROSBRIDGE_PORT:-9090}
 HOST="0.0.0.0"
 HTTP_PORT=8080
-# Power control for this machine (Dashboard). It serves the web client, so it
-# powers off last and a bit later. The Jetson runs its own powerNode.py
-# (--machine jetson). POWER_MACHINE=none skips it. Shutting down needs a
-# sudoers rule; see ros_nodes/powerNode.py.
+# Power control of this machine (Dashboard); POWER_MACHINE=none skips it.
+# The Jetson runs its own powerNode.py. Powering off needs a sudoers rule (see powerNode.py).
 POWER_MACHINE=${POWER_MACHINE:-nuc}
 WEB_VIDEO_PORT=8181
 

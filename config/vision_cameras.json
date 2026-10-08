@@ -1,5 +1,5 @@
 {
-  "_comment": "Cameras on the Vision page (first = default). imageTopic: the image the detector runs on; cameraInfoTopic: its camera_info (for resolution/FPS); detectionTopic: the detector's annotated debug image. Defaults match BORIS v2 (fbot_vision fbot_recognition/config/yolov8_{femtobolt,realsense}.yaml). Edit and reload the page; no code change needed.",
+  "_comment": "Vision page cameras (first = default). imageTopic: the image the detector runs on; detectionTopic: its annotated debug image. BORIS v2 defaults; edit and reload the page.",
   "cameras": [
     {
       "id": "femtobolt",

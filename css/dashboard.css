@@ -176,7 +176,6 @@ button.power-card.speaking-mode {
   cursor: not-allowed;
   opacity: 0.6;
 }
-/* ---- connection / freshness bar ---- */
 .dash-connection {
   display: flex;
   align-items: center;
@@ -211,7 +210,6 @@ button.power-card.speaking-mode {
   opacity: 0.35;
 }
 
-/* ---- cards ---- */
 .card {
   min-width: 0;
 }
@@ -265,7 +263,6 @@ button.dash-card-button[aria-expanded="true"] {
   border-color: var(--primary);
 }
 
-/* ---- node / topic list ---- */
 .dash-list {
   background: var(--card);
   border: 1px solid var(--border);
@@ -321,7 +318,6 @@ button.dash-card-button[aria-expanded="true"] {
   cursor: pointer;
 }
 
-/* ---- power control ---- */
 .dash-power-grid {
   margin-top: 20px;
   display: grid;
@@ -393,7 +389,6 @@ button.dash-card-button[aria-expanded="true"] {
 .dash-shutdown-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .dash-power-actions .dash-btn[hidden] { display: none; }
 
-/* ---- system logs ---- */
 .dash-logs-header {
   display: flex;
   align-items: center;

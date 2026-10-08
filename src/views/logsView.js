@@ -9,10 +9,8 @@ let _state = { entries: [], skippedInfo: 0, available: false };
 let _shown = []; // snapshot on screen (frozen while paused)
 let _paused = false;
 let _pausedAtId = 0;
-// Clear: each entry's count at that moment. Repeats keep their entry id (the
-// aggregator merges them), so "hide ids up to X" would hide a message that
-// happens again after Clear; instead an entry shows if it occurred since,
-// with only those occurrences counted.
+// Each entry's count at Clear. Repeats reuse their entry id, so an entry shows
+// again if it occurred since, counting only those occurrences.
 let _clearBaseline = new Map(); // id -> count when cleared
 
 function _time(t) {
@@ -215,5 +213,5 @@ export function destroyLogsView() {
     _els.pause.setAttribute("aria-pressed", "false");
     _els.pause.textContent = "Pause";
   }
-  // Keep _clearBaseline: a cleared log stays cleared when coming back to the page.
+  // _clearBaseline stays: a cleared log stays cleared when coming back to the page.
 }

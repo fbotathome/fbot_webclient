@@ -6,8 +6,7 @@ import {
   publishPickCancel,
 } from "../ros/connection.js";
 
-// How far (in image pixels) a selected box may drift between detection
-// frames and still be treated as the same object.
+// Max drift (image px) of a selected box between frames to still count as the same object.
 const SELECTION_MAX_DRIFT_PX = 80;
 const REQUEST_TIMEOUT_MS = 5000;
 
@@ -34,10 +33,8 @@ function _emit() {
   }
 }
 
-// Detections are re-published every ~200 ms with fresh indices, so the
-// selection is re-matched each frame to the nearest box with the same label.
-// If it vanishes for a frame, keep the last match — the bridge still holds
-// that snapshot for a few seconds.
+// Indices change every frame: follow the selection to the nearest box with the
+// same label, keeping the last match (still held by the bridge) if it vanishes.
 function _trackSelection(frame) {
   if (!_selection) return;
   let best = null;
@@ -70,7 +67,7 @@ export function startPick(onChange) {
   if (_unsubDetections) return;
   _onChange = onChange;
 
-  // The bridge re-announces its cameras every second; only react to changes.
+  // Re-announced every second; only changes matter.
   _unsubCameras = subscribePickCameras(({ cameras }) => {
     if (JSON.stringify(cameras) === JSON.stringify(_cameras)) return;
     _cameras = cameras;
@@ -129,11 +126,6 @@ export function selectDetection(index) {
     cx: det.bbox2d.cx,
     cy: det.bbox2d.cy,
   };
-  _emit();
-}
-
-export function clearSelection() {
-  _selection = null;
   _emit();
 }
 

@@ -1,26 +1,12 @@
-"""Collects ROS logs (/rosout) for the web client's Dashboard "System Logs".
+"""Collects /rosout for the web client's Dashboard System Logs.
 
-The browser can't take /rosout raw: Nav2, MoveIt, the detectors... can log
-hundreds of lines a second, and rosbridge's throttling just drops messages —
-an ERROR among them could vanish. This node:
-
-  * keeps the recent log in two buffers — WARN/ERROR/FATAL apart from
-    INFO/DEBUG, so an INFO flood never pushes an error out;
-  * merges repeats: the same node, level and text within REPEAT_WINDOW_S is
-    one entry with a count ("Failed to transform ... x37");
-  * publishes what changed twice a second on /fbot_webclient/logs (std_msgs/String JSON):
-        {"entries": [{"id", "t", "first_t", "level", "node", "msg", "count"}...],
-         "skipped_info": N}
-    An entry whose count grew is re-sent with the same id. Up to
-    MAX_INFO_PER_BATCH new INFO/DEBUG entries per batch, the rest only counted
-    in skipped_info; WARN and above are never skipped;
-  * serves the buffered log to a page that just opened:
-        /fbot_webclient/logs/history (std_srvs/Trigger) -> message = {"entries": [...]}
-
-Only what goes through the ROS logger reaches /rosout (not print() or the
-output of non-ROS programs).
-
-    python3 ros_nodes/logAggregator.py
+Raw /rosout is too much for rosbridge, whose throttling drops messages. This node
+keeps WARN+ apart from INFO/DEBUG (a flood never evicts an error), merges repeats
+within REPEAT_WINDOW_S into one entry with a count, and publishes the changes twice
+a second on /fbot_webclient/logs (JSON {"entries": [...], "skipped_info": N}; at
+most MAX_INFO_PER_BATCH new INFO/DEBUG per batch, WARN+ never skipped). A page
+that just opened gets the buffered log from /fbot_webclient/logs/history
+(std_srvs/Trigger).
 """
 
 import itertools
@@ -88,7 +74,7 @@ class LogAggregator(Node):
         self._changed[entry["id"]] = entry
 
     def _publish(self):
-        # Forget merge candidates that left their window (keeps the dict small).
+        # Forget merge candidates outside their window.
         now = time.time()
         self._recent = {k: e for k, e in self._recent.items() if now - e["t"] <= REPEAT_WINDOW_S}
         if not self._changed and not self._skipped_info:

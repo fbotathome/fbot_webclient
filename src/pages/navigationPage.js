@@ -14,6 +14,7 @@ import {
 
 const DEFAULT_GROUP = "targets";
 const HINT_DEFAULT = "Wheel or pinch: zoom · right-drag or two fingers: pan · click or drag: pick a goal, then Go";
+const POSE_HINT = "Set pose: click/drag where the robot really is (drag sets its heading) · Esc to cancel";
 
 const RUNNING_PHASES = ["sending", "navigating", "canceling"];
 const STATUS_CLASSES = [
@@ -175,21 +176,15 @@ function _flashHint(text) {
   _hintEl.textContent = text;
   clearTimeout(_hintTimer);
   _hintTimer = setTimeout(() => {
-    if (_hintEl) _hintEl.textContent = _poseMode ? _poseModeHint() : HINT_DEFAULT;
+    if (_hintEl) _hintEl.textContent = _poseMode ? POSE_HINT : HINT_DEFAULT;
   }, 3000);
-}
-
-// ---- pose estimate ("2D Pose Estimate") ----
-
-function _poseModeHint() {
-  return "Set pose: click/drag where the robot really is (drag sets its heading) · Esc to cancel";
 }
 
 function _setPoseMode(on) {
   _poseMode = on;
   NavigationView.setInteractionMode(on ? "pose" : "goal");
   if (_poseBtn) _poseBtn.setAttribute("aria-pressed", String(on));
-  if (_hintEl) _hintEl.textContent = on ? _poseModeHint() : HINT_DEFAULT;
+  if (_hintEl) _hintEl.textContent = on ? POSE_HINT : HINT_DEFAULT;
   if (on && _preview) _discardGoal();
 }
 
@@ -208,8 +203,6 @@ function _onKeyDown(e) {
   if (_poseMode) _setPoseMode(false);
   else if (_preview) _discardGoal();
 }
-
-// ---- named locations ----
 
 async function _loadLocations(group) {
   try {

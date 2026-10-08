@@ -28,9 +28,8 @@ let _path = []; // [{ x, y }] in map
 let _scan = []; // [{ x, y }] in the robot base frame
 let _dragState = null; // { startX, startY, curX, curY, loc } — one pointer picking a goal/location
 let _panState = null; // { lastX, lastY } — mouse pan (middle/right button)
-// Touch: every finger on the canvas; two fingers pinch-zoom and pan. After a
-// pinch, the remaining finger is ignored until all are lifted, so ending a
-// zoom never turns into a goal.
+// Touch: two fingers pinch-zoom and pan; after a pinch the remaining finger is
+// ignored until all lift, so ending a zoom never picks a goal.
 const _touches = new Map(); // pointerId -> { x, y }
 let _pinch = null; // { dist, midX, midY }
 let _touchLocked = false;
@@ -286,7 +285,7 @@ export function getRobotPose() {
   return _robotPose;
 }
 
-/** goal: { x, y, yaw, preview } — preview draws it dashed (not sent yet) — or null. */
+/** { x, y, yaw, preview } (preview: dashed, not sent yet), or null. */
 export function setGoalMarker(goal) {
   _goal = goal;
   _draw();
@@ -391,8 +390,7 @@ function _onPointerDown(e) {
   }
   if (e.button !== 0) return;
 
-  // A location is taken on release, so a finger that turns into a pinch
-  // doesn't pick it.
+  // Taken on release, so a finger that becomes a pinch doesn't pick it.
   const loc = _mode === "goal" ? _findLocationAt(x, y) : null;
   // The letterbox around the map is not a place the robot can go.
   if (!loc && !_isOnMap(x, y)) return;

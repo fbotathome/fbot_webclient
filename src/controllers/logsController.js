@@ -6,9 +6,8 @@ const MAX_ENTRIES = 1000; // kept in the browser
 const WARN = 30;
 
 /**
- * Follows the robot's log. onChange({ entries, skippedInfo, available }) on
- * every update; entries ordered oldest -> newest, repeats merged ("count").
- * `available` is false while the aggregator can't be reached.
+ * onChange({ entries, skippedInfo, available }) on every update: entries oldest
+ * first, repeats merged ("count"); `available` turns true once the aggregator answers.
  */
 export function startLogs(onChange) {
   const byId = new Map();
@@ -22,12 +21,8 @@ export function startLogs(onChange) {
   };
 
   const apply = (entries) => {
-    for (const e of entries) {
-      byId.delete(e.id); // re-insert so updated repeats stay in id order below
-      byId.set(e.id, e);
-    }
-    // Map keeps insertion order; restore id order, then drop the oldest
-    // INFO/DEBUG first so warnings and errors are the last to go.
+    for (const e of entries) byId.set(e.id, e);
+    // Over the limit: the oldest INFO/DEBUG go first, warnings and errors last.
     const sorted = [...byId.values()].sort((a, b) => a.id - b.id);
     let excess = sorted.length - MAX_ENTRIES;
     const drop = new Set();

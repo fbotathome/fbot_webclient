@@ -1,12 +1,11 @@
 import { subscribeCameraInfo, callGetPublishers } from "../ros/connection.js";
 
-// Cameras come from config/vision_cameras.json, so a renamed topic is a config
-// edit. These defaults (BORIS v2, fbot_vision yolov8_{femtobolt,realsense}.yaml)
-// are used if that file is missing or invalid.
+// Cameras come from config/vision_cameras.json; these BORIS v2 defaults
+// (fbot_vision yolov8_{femtobolt,realsense}.yaml) apply if it is missing or invalid.
 const CAMERAS_CONFIG_URL = "config/vision_cameras.json";
 const CAMERA_FIELDS = ["id", "name", "imageTopic", "cameraInfoTopic", "detectionTopic"];
 
-export const DEFAULT_CAMERAS = Object.freeze([
+const DEFAULT_CAMERAS = Object.freeze([
   {
     id: "femtobolt",
     name: "Head (Femto Bolt)",
@@ -52,10 +51,7 @@ const FPS_WINDOW_MS = 2000;
 const NO_SIGNAL_AFTER_MS = 2500;
 const DETECTION_POLL_MS = 3000;
 
-/**
- * Watches a camera's camera_info: onStats({ live, fps, width, height }).
- * `live` turns false once no frame has arrived for a while (or never did).
- */
+/** onStats({ live, fps, width, height }) from camera_info; `live` is false when frames stop. */
 export function startCameraMonitor(camera, onStats) {
   let arrivals = [];
   let size = null;
@@ -91,9 +87,8 @@ export function startCameraMonitor(camera, onStats) {
 }
 
 /**
- * Whether a detector is publishing this camera's debug image:
- * onStatus({ state: "active" | "inactive" | "unknown", nodes }).
- * "unknown" when rosapi can't be asked (e.g. rosbridge launched without it).
+ * onStatus({ state: "active" | "inactive" | "unknown", nodes }): whether a node
+ * publishes the camera's detection image ("unknown" if rosapi can't be asked).
  */
 export function startDetectionMonitor(camera, onStatus) {
   let stopped = false;

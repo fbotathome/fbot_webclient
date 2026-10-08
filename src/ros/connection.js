@@ -37,10 +37,6 @@ ros.on("close", () => {
 });
 
 export const TOPICS = Object.freeze({
-  cmdVel: {
-    name: "/cmd_vel",
-    type: "geometry_msgs/Twist",
-  },
   neckControl: {
     name: "/updateNeck",
     type: "std_msgs/Float64MultiArray",
@@ -95,7 +91,7 @@ export const TOPICS = Object.freeze({
     name: "/initialpose",
     type: "geometry_msgs/PoseWithCovarianceStamped",
   },
-  // Odometry fills in the robot's motion between AMCL updates (EKF output on BORIS).
+  // Fills in the motion between AMCL updates.
   odometry: {
     name: "/odometry/filtered",
     type: "nav_msgs/Odometry",
@@ -108,16 +104,12 @@ export const TOPICS = Object.freeze({
     name: "/scan",
     type: "sensor_msgs/LaserScan",
   },
-  // Static TF only (published once): enough to place the laser on the robot.
-  // The full /tf stream carries every joint of the base, neck and arm at high
-  // rate — too much to push through rosbridge as JSON.
+  // Static TF only: the full /tf stream (every joint, high rate) is too heavy for rosbridge.
   tfStatic: {
     name: "/tf_static",
     type: "tf2_msgs/TFMessage",
   },
-  // Nav2's NavigateToPose action, read through its underlying topics: the
-  // vendored roslib predates ROS 2 action support. bt_navigator turns each
-  // /goal_pose message into one of these goals.
+  // Nav2's NavigateToPose action through its topics: this roslib has no ROS 2 actions.
   navStatus: {
     name: "/navigate_to_pose/_action/status",
     type: "action_msgs/GoalStatusArray",
@@ -197,11 +189,6 @@ function trackSubscription(topic, wrapper) {
 
 export function createService(name, serviceType) {
   return new ROSLIB.Service({ ros, name, serviceType });
-}
-
-const _cmdVel = createPublisher(TOPICS.cmdVel.name, TOPICS.cmdVel.type);
-export function publishCmdVel(linear, angular) {
-  _cmdVel.publish(new ROSLIB.Message({ linear, angular }));
 }
 
 const _updateNeck = createPublisher(
@@ -556,9 +543,7 @@ export function callMoveToPose(pose) {
   );
 }
 
-// MoveIt's move_group collision check. `jointPositions` maps joint name ->
-// position; is_diff makes move_group fill every other joint (e.g. the
-// gripper) from the robot's current state.
+// is_diff: move_group fills the other joints (e.g. the gripper) from the current state.
 const _checkStateValidityClient = createService(
   SERVICES.checkStateValidity.name,
   SERVICES.checkStateValidity.type,
@@ -580,11 +565,7 @@ export function callCheckStateValidity(jointPositions, groupName) {
   );
 }
 
-// ---- Vision ----------------------------------------------------------------
-
-// camera_info is a few hundred bytes and arrives with every frame, so it
-// tells the page a camera's resolution and frame rate without pulling the
-// images themselves through rosbridge (those go through web_video_server).
+// camera_info (tiny, one per frame) gives resolution and FPS without the images.
 export function subscribeCameraInfo(topicName, callback) {
   const topic = createTopic(topicName, "sensor_msgs/CameraInfo");
   return trackSubscription(topic, callback);
@@ -601,8 +582,6 @@ export function callGetPublishers(topicName) {
     );
   });
 }
-
-// ---- Dashboard ---------------------------------------------------------------
 
 /** rosbridge connection state: callback(true|false) now and on every change. */
 export function onConnectionChange(callback) {

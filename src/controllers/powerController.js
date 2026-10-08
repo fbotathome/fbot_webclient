@@ -28,11 +28,7 @@ export async function loadMachines() {
   }
 }
 
-/**
- * Follows every machine's heartbeat. onChange(states) with states[id] =
- * { online, status } — status is the last heartbeat
- * ({ hostname, ip, uptime_s, can_shutdown, dry_run }) or null.
- */
+/** onChange(states): states[id] = { online, status: last heartbeat or null }. */
 export function startPowerMonitor(machines, onChange) {
   const last = {}; // id -> { at, status }
   let previous = "";
@@ -77,10 +73,7 @@ export async function shutdownMachine(machineId) {
   }
 }
 
-/**
- * Powers off the given machines one at a time, in config order — the machine
- * serving the web client should be last, so the earlier replies still arrive.
- */
+/** One at a time, in config order: the machine serving the web client goes last. */
 export async function shutdownAll(machineIds) {
   const results = [];
   for (const id of machineIds) results.push({ id, ...(await shutdownMachine(id)) });

@@ -39,8 +39,7 @@ const PHASE_BY_STATUS = {
   [GOAL_STATUS.ABORTED]: "failed",
 };
 
-// bt_navigator silently drops /goal_pose messages until it is active, so a
-// goal that doesn't show up as a NavigateToPose goal by then was not taken.
+// bt_navigator drops /goal_pose until it is active: a goal not seen by then wasn't taken.
 const ACCEPT_TIMEOUT_MS = 3000;
 
 let _seenGoals = null; // goal keys seen on the status topic; null until the first message
@@ -74,10 +73,8 @@ function _poseFromMsg(pose) {
 }
 
 /**
- * Robot pose in the map, updated smoothly. AMCL (/amcl_pose) only publishes
- * after the robot moved past its update thresholds, so on its own the marker
- * jumps; between AMCL updates, the odometry travelled since the last one is
- * applied on top of it: pose = amcl ⊕ (odom_at_amcl⁻¹ ⊕ odom_now).
+ * Smooth map pose: AMCL only publishes after some motion, so odometry fills in
+ * between updates: pose = amcl ⊕ (odom_at_amcl⁻¹ ⊕ odom_now).
  */
 export function startPoseSubscription(onPose) {
   let amcl = null; // last AMCL pose (map)
@@ -141,11 +138,7 @@ function _rotate(q, v) {
   };
 }
 
-/**
- * Laser points as [{ x, y }] in the robot base frame. The laser's mounting
- * (laser frame -> base_footprint) is taken from /tf_static, which is published
- * once; until it is known the laser is assumed to sit at the base origin.
- */
+/** Laser points [{ x, y }] in the base frame; the mounting comes from /tf_static (base origin until known). */
 export function startScanSubscription(onScan) {
   const staticTf = new Map(); // child frame -> { parent, translation, rotation }
   let warned = false;
@@ -198,7 +191,7 @@ export function startScanSubscription(onScan) {
   };
 }
 
-export function sendGoal(x, y, yawRad) {
+function sendGoal(x, y, yawRad) {
   publishGoalPose(x, y, yawRad);
   console.log(
     `[Navigation] Goal sent: x=${x.toFixed(2)}, y=${y.toFixed(2)}, yaw=${yawRad.toFixed(2)}`,
@@ -301,11 +294,9 @@ export async function cancelNavigation() {
 const CLEAR_COSTMAPS_DELAY_MS = 1500;
 
 /**
- * Pose estimate for AMCL, as with RViz's "2D Pose Estimate", then clears both
- * costmaps. While the robot was mislocalised, every scan was stamped into the
- * costmaps at the wrong place; those phantom obstacles outlive the fix (in the
- * simulator they sent the planner around the outside of the lab and then made
- * the goal unreachable). Resolves to whether the costmaps were cleared.
+ * Pose estimate for AMCL (RViz's "2D Pose Estimate"), then clears both costmaps:
+ * scans taken while mislocalised leave phantom obstacles behind.
+ * Resolves to whether the costmaps were cleared.
  */
 export async function setInitialPose(x, y, yawRad) {
   publishInitialPose(x, y, yawRad);

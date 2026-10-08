@@ -40,8 +40,7 @@ function _setStream(which, topic) {
   stream.topic = topic;
   stream.failed = false;
   img.onerror = () => {
-    // A topic nobody publishes doesn't error (the server just waits); a
-    // server that can't be reached does.
+    // Only an unreachable server errors; a silent topic just waits.
     stream.failed = true;
     clearTimeout(stream.retry);
     stream.retry = setTimeout(() => {
@@ -64,11 +63,6 @@ function _stopStream(which) {
     img.removeAttribute("src"); // closes the MJPEG connection
     img.style.display = "none";
   }
-}
-
-/** True once the stream has delivered at least one frame. */
-export function hasImage(which) {
-  return (_img(which)?.naturalWidth ?? 0) > 0;
 }
 
 export function initView(cameras, currentId, onCameraChange, signal) {
@@ -113,8 +107,7 @@ function _setLabel(el, text, warning) {
   el.classList.toggle("feed-placeholder-label--warning", warning);
 }
 
-// A stalled MJPEG <img> keeps showing its last frame. Dim it and put the
-// reason on top, so a frozen picture is never mistaken for a live one.
+// A stalled MJPEG <img> keeps its last frame: dim it and show the reason on top.
 function _setStalled(feed, stalled) {
   if (feed) feed.classList.toggle("vision-feed--stalled", stalled);
 }
@@ -126,10 +119,7 @@ function _setStatus(el, text, active) {
   el.classList.toggle("vision-inactive", !active);
 }
 
-/**
- * camera: the selected camera; stats: from the camera_info monitor (or null
- * before the first update); detection: from the detection monitor (or null).
- */
+/** stats and detection are null until their monitors first report. */
 export function render(camera, stats, detection) {
   const serverDown = `Video server unreachable at ${CONFIG.videoServerUrl}`;
 

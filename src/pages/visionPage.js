@@ -61,7 +61,7 @@ export async function initVision() {
   const cameraId = _loadCameraId();
   VisionView.initView(_cameras, cameraId, _selectCamera, _abortController.signal);
   _selectCamera(cameraId);
-  // Re-render on a timer too: the "frame received" state of the <img> has no event.
+  // Also on a timer: a stream error (<img> onerror) doesn't trigger a render.
   _renderTimer = setInterval(_render, RENDER_PERIOD_MS);
   console.log("[vision] Page initialized.");
 }

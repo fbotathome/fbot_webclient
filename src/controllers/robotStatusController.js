@@ -1,6 +1,5 @@
 import { subscribeRobotStatus } from "../ros/connection.js";
 
-let _status = null;
 let _lastUpdate = 0;
 let _unsubscribe = null;
 const _listeners = new Set();
@@ -22,7 +21,6 @@ export function getStatusAge() {
 function _ensureSubscribed() {
   if (_unsubscribe) return;
   _unsubscribe = subscribeRobotStatus((data) => {
-    _status = data;
     _lastUpdate = Date.now();
     for (const cb of _listeners) {
       try {

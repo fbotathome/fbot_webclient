@@ -15,9 +15,7 @@ const GHOST_COLLISION_COLOR = 0xe53935;
 const ROBOT_COLOR = 0xffffff;
 const TCP_FRAME_NAME = "link_tcp";
 
-// RViz-style interactive marker: one ring (rotate) and a pair of arrows
-// (translate) per axis of the end-effector frame, plus a center sphere
-// that moves freely in the camera plane.
+// Interactive marker: per axis, arrows translate and a ring rotates; the center sphere moves freely.
 const MARKER_RING_RADIUS = 0.09;
 const MARKER_RING_TUBE = 0.004;
 const MARKER_RING_HIT_TUBE = 0.012;
@@ -54,7 +52,6 @@ let ghostCollidingLinks = new Set(); // link names MoveIt reports in collision
 let _onGhostStateChange = null;
 
 let eeGizmo = null; // the interactive marker; its pose is the IK target
-let eeHandles = []; // { type, axis, visuals, hits, baseColor }
 let eeHitMeshes = [];
 let eeHoveredHandle = null;
 let eeActiveHandle = null;
@@ -65,15 +62,12 @@ let _eePointerMoveHandler = null;
 let _eePointerDownHandler = null;
 let _eePointerUpHandler = null;
 
-// robot.rotation.x = -PI/2 converts the URDF's Z-up frame to three.js's
-// Y-up frame for rendering. This helper converts a point from the original
-// ROS/URDF frame into that three.js scene-space.
+// The URDF is Z-up and three.js Y-up (robot.rotation.x = -PI/2).
 function _rosToThree({ x, y, z }) {
   return new THREE.Vector3(x, z, -y);
 }
 
-// Expresses a scene-space pose in the robot's root (ROS base) frame — what
-// /fbot_manipulator/move_to_pose expects.
+// Scene pose -> robot base frame, as /fbot_manipulator/move_to_pose expects.
 function _sceneToRosPose(position, quaternion) {
   const root = robot || ghostRobot;
   if (!root) return null;
@@ -125,13 +119,9 @@ export function initView(container) {
   const manager = new THREE.LoadingManager();
   const stlLoader = new STLLoader();
   manager.addHandler(/\.stl$/i, stlLoader);
-  // The URDF "complete" callback below fires as soon as the joint/link
-  // tree is parsed — the STL meshes for each link are still loading in
-  // the background at that point, so tinting the robot only works once
-  // the manager reports every mesh fetch has actually finished.
+  // Meshes are still loading when the URDF callback fires; tint once all are in.
   manager.onLoad = () => {
     if (robot) _makeRobotMaterial(robot, ROBOT_COLOR);
-    console.log("[manipulator] real robot meshes tinted white");
   };
 
   const loader = new URDFLoader(manager);
@@ -159,7 +149,6 @@ export function initView(container) {
   ghostManager.addHandler(/\.stl$/i, ghostStlLoader);
   ghostManager.onLoad = () => {
     if (ghostRobot) _makeGhostMaterial(ghostRobot);
-    console.log("[manipulator] ghost robot meshes tinted orange, chain length:", ghostChain.length);
   };
   const ghostLoader = new URDFLoader(ghostManager);
   ghostLoader.load(
@@ -204,8 +193,7 @@ function _makeRobotMaterial(joint, color) {
   });
 }
 
-// Only the link's own visuals — traversing the link itself would also
-// recolor every link further down the chain.
+// The link's own visuals only, not the links further down the chain.
 function _forEachLinkMaterial(link, fn) {
   link.children.forEach((child) => {
     if (child.isURDFJoint || child.isURDFLink) return;
@@ -213,8 +201,7 @@ function _forEachLinkMaterial(link, fn) {
   });
 }
 
-// Orange when reachable, grey when IK couldn't reach the marker, and the
-// links MoveIt reports in collision in red on top of that (as RViz does).
+// Orange, grey if IK can't reach the marker, colliding links red.
 function _applyGhostColors() {
   if (!ghostRobot) return;
   _makeRobotMaterial(ghostRobot, ghostReachable ? GHOST_COLOR : GHOST_UNREACHABLE_COLOR);
@@ -233,17 +220,13 @@ function _makeGhostMaterial(joint) {
     m.transparent = true;
     m.opacity = GHOST_OPACITY;
     m.depthWrite = false;
-    // Without this, the opaque real robot — which starts out in nearly the
-    // same pose as the ghost — hides it behind its own depth values. The
-    // ghost is a preview overlay, so it should always draw on top instead
-    // of losing the depth test to whatever it's aiming from/at.
+    // Draw on top of the real robot, which shares the ghost's initial pose.
     m.depthTest = false;
   });
   joint.traverse((obj) => {
     if (!obj.isMesh) return;
     obj.renderOrder = 998;
-    // three.js raycasts invisible objects too — keep the hidden ghost from
-    // stealing joint-drag hovers from the real robot.
+    // three.js raycasts invisible objects too; keep the ghost out of joint drags.
     obj.raycast = () => {};
   });
 }
@@ -264,8 +247,6 @@ export function setGhostCollidingLinks(linkNames) {
   _applyGhostColors();
 }
 
-// Fires with the ghost's arm joint positions every time the preview pose
-// changes, so the controller can ask MoveIt whether it collides.
 export function onGhostStateChange(callback) {
   _onGhostStateChange = callback;
 }
@@ -293,11 +274,9 @@ function _highlightJoint(joint, isOn) {
   });
 }
 
-// OrbitControls listens on 'pointerdown', which always fires before any
-// drag handler finds out about the click — so the camera has to be disabled
-// as soon as something draggable is hovered, not when the drag starts. Both
-// the joint-drag and the marker hover state feed into this single place so
-// one can't re-enable the camera while the other still needs it off.
+// OrbitControls reacts on pointerdown, before any drag handler, so the camera is
+// disabled while something draggable is hovered. Joint and marker state meet here
+// so one can't re-enable it while the other needs it off.
 function _refreshInteractionState() {
   const busy = eeDragging || _jointDragging;
   const hovering = !!eeHoveredHandle || _jointHovered;
@@ -340,9 +319,7 @@ export function onJointDragEnd(callback) {
   _onJointDragEnd = callback;
 }
 
-// Walks up from `tipLink` to `robotObj`, collecting the movable (non-fixed)
-// joints along the way, base-first — the kinematic chain the IK solver
-// moves to bring the ghost's end effector onto the marker.
+// Movable joints from the base to `tipLink`.
 function _getKinematicChain(robotObj, tipLink) {
   const chain = [];
   let node = tipLink;
@@ -365,8 +342,7 @@ const _ikAxisWorld = new THREE.Vector3();
 const _ikLever = new THREE.Vector3();
 const _ikJointQuat = new THREE.Quaternion();
 
-// Fills _ikPosErr / _ikRotErr with the ghost tip's pose error (world frame),
-// the rotation error as an axis-angle vector.
+// Ghost tip pose error into _ikPosErr / _ikRotErr (world frame, rotation as axis-angle).
 function _computeGhostError(targetPos, targetQuat) {
   ghostRobot.updateMatrixWorld(true);
   ghostTip.getWorldPosition(_ikTipPos);
@@ -387,8 +363,7 @@ function _computeGhostError(targetPos, targetQuat) {
   }
 }
 
-// Solves A x = b in place for a small dense system (Gaussian elimination
-// with partial pivoting). A is n x n as an array of rows.
+// Solves A x = b in place (Gaussian elimination, partial pivoting).
 function _solveLinear(A, b) {
   const n = b.length;
   for (let col = 0; col < n; col++) {
@@ -415,11 +390,8 @@ function _solveLinear(A, b) {
   return x;
 }
 
-// Damped-least-squares IK over the full 6-DOF pose (position + orientation),
-// the same kind of preview MoveIt's RViz plugin shows while dragging its
-// interactive marker. Only drives the ghost robot — the real arm doesn't
-// move until the user confirms. Joint limits are enforced by urdf-loader's
-// setJointValue. Returns whether the target was reached.
+// Damped-least-squares IK of the ghost onto the full target pose. Joint limits
+// come from setJointValue. Returns whether the target was reached.
 function _solveGhostIK(targetPos, targetQuat) {
   if (!ghostRobot || !ghostTip || ghostChain.length === 0) return false;
 
@@ -437,7 +409,7 @@ function _solveGhostIK(targetPos, targetQuat) {
       w * _ikRotErr.x, w * _ikRotErr.y, w * _ikRotErr.z,
     ];
 
-    // Geometric Jacobian, one 6-vector column per revolute joint.
+    // Geometric Jacobian, one column per joint.
     const J = ghostChain.map((joint) => {
       joint.getWorldPosition(_ikPivot);
       _ikAxisWorld.copy(joint.axis).applyQuaternion(joint.getWorldQuaternion(_ikJointQuat)).normalize();
@@ -502,8 +474,6 @@ function _addHandle(type, axis, color, visuals, hits) {
     mesh.userData.handle = handle;
     eeHitMeshes.push(mesh);
   });
-  eeHandles.push(handle);
-  return handle;
 }
 
 function _setHandleHighlight(handle, isOn) {
@@ -524,7 +494,7 @@ function _buildMarker() {
   );
   _addHandle("free", null, EE_GIZMO_COLOR, [sphere], [sphere]);
 
-  // Invisible but raycastable — gives the thin rings a forgiving grab area.
+  // Invisible but raycastable: a wider grab area for the thin rings.
   const hitMaterial = new THREE.MeshBasicMaterial({ visible: false });
   const up = new THREE.Vector3(0, 1, 0);
 
@@ -558,8 +528,7 @@ function _buildMarker() {
   });
 }
 
-// Parameter t of the point on the line P + t·d closest to the given ray, or
-// null when the ray runs (nearly) parallel to the line.
+// t of the point on the line P + t·d closest to the ray; null if (nearly) parallel.
 function _closestParamOnLine(ray, P, d) {
   const w = new THREE.Vector3().subVectors(P, ray.origin);
   const b = d.dot(ray.direction);
@@ -646,16 +615,14 @@ function _setupEndEffectorGizmo() {
     const handle = hitTest();
     if (!handle) return;
 
-    // Suppresses the compatibility 'mousedown' the joint-drag controls
-    // listen for, so grabbing the marker never also grabs a link behind it.
+    // Suppresses the compatibility mousedown the joint-drag controls listen for.
     event.preventDefault();
 
     eeActiveHandle = handle;
     eeDragging = true;
     _setHandleHighlight(handle, true);
 
-    // Starting fresh from the real arm; when refining a pending target, keep
-    // the ghost where it is so the drag continues from the previewed pose.
+    // Refining a pending target continues from the previewed pose.
     if (!eePendingTarget) _syncGhostToRobot();
     eePendingTarget = false;
     if (ghostRobot) ghostRobot.visible = true;
@@ -704,10 +671,7 @@ export function onEndEffectorDragEnd(callback) {
   _onEndEffectorDragEnd = callback;
 }
 
-// Called by the page once the user approves (or discards) the ghost's
-// pending pose. Confirming just clears the preview — the caller is
-// responsible for sending the real move command; the marker will glide
-// back onto the live end effector as new /joint_states arrive.
+// The caller sends the real move; the marker then follows /joint_states again.
 export function confirmPendingTarget() {
   eePendingTarget = false;
   if (ghostRobot) ghostRobot.visible = false;
@@ -731,9 +695,7 @@ function _createLoadingIndicator(container) {
   return el;
 }
 
-// Keep the marker glued to the real end-effector pose while it's not being
-// dragged and there's no pending target, so grabbing it feels like grabbing
-// the arm itself (same as MoveIt's RViz marker).
+// The marker follows the real end effector unless dragged or pending.
 function _snapGizmoToTip() {
   if (!robot || !eeGizmo || eeDragging || eePendingTarget) return;
   const tcp = robot.links && robot.links[TCP_FRAME_NAME];
@@ -744,20 +706,9 @@ function _snapGizmoToTip() {
 }
 
 export function updateJoints(jointData) {
-  const angles = {};
-
-  if (!robot) return angles;
-
-  for (let i = 0; i < jointData.name.length; i++) {
-    const name = jointData.name[i];
-    const angle = jointData.position[i];
-    robot.setJointValue(name, angle);
-    angles[name] = ((angle * 180) / Math.PI).toFixed(1) + "°";
-  }
-
+  if (!robot) return;
+  jointData.name.forEach((name, i) => robot.setJointValue(name, jointData.position[i]));
   _snapGizmoToTip();
-
-  return angles;
 }
 
 export function startAnimation() {
@@ -798,7 +749,6 @@ export function destroyView() {
   _eePointerDownHandler = null;
   _eePointerUpHandler = null;
   eeGizmo = null;
-  eeHandles = [];
   eeHitMeshes = [];
   eeHoveredHandle = null;
   eeActiveHandle = null;

@@ -128,7 +128,7 @@
     font-size: 14px;
 }
 
-/* Shown in place of the image when nothing arrives: says why, not just "Camera Feed". */
+/* Why nothing arrives, in place of the image. */
 .feed-placeholder-label.feed-placeholder-label--warning {
     color: var(--primary);
     opacity: 1;

@@ -9,21 +9,16 @@ import {
 import * as ManipulatorView from "../views/manipulatorView.js";
 
 let _unsubscribe = null;
-let _joints = {};
 let _currentJointPositions = [0, 0, 0, 0, 0, 0];
 
 export const GRIPPER_MIN = 0.0;
 export const GRIPPER_MAX = 0.9;
 
-export const NAMED_TARGETS = ["home", "hold-up"];
-
 // MoveIt planning group (xarm_moveit_config SRDF) used for collision checks.
 const ARM_GROUP_NAME = "xarm6";
 const CONTACT_ROBOT_LINK = 0; // moveit_msgs/ContactInformation.ROBOT_LINK
 
-// Collision checks of the ghost preview: at most one request in flight;
-// while it runs only the newest ghost pose is kept, so a fast drag never
-// builds a backlog of stale checks on rosbridge.
+// One collision check in flight; meanwhile only the newest ghost pose is kept.
 let _collisionInFlight = false;
 let _collisionQueued = null;
 let _onCollisionStatus = null;
@@ -65,7 +60,7 @@ export function startManipulator() {
   ManipulatorView.onGhostStateChange(_queueCollisionCheck);
 
   _unsubscribe = subscribeJointStates((msg) => {
-    _joints = ManipulatorView.updateJoints(msg);
+    ManipulatorView.updateJoints(msg);
     msg.name.forEach((name, i) => {
       const idx = JOINT_LIMITS.findIndex((j) => j.name === name);
       if (idx !== -1) _currentJointPositions[idx] = msg.position[i];
@@ -106,13 +101,13 @@ async function _runCollisionCheck() {
       contacts,
       collidingLinks,
     };
-  } catch (err) {
-    status = { state: "unavailable", contacts: [], collidingLinks: [], error: err };
+  } catch {
+    status = { state: "unavailable", contacts: [], collidingLinks: [] };
   } finally {
     _collisionInFlight = false;
   }
 
-  // A newer pose arrived meanwhile — this result is already stale.
+  // A newer pose arrived meanwhile: this result is stale.
   if (_collisionQueued) {
     _runCollisionCheck();
     return;
@@ -159,7 +154,6 @@ export function stopManipulator() {
     _unsubscribe();
     _unsubscribe = null;
   }
-  _joints = {};
   _currentJointPositions = [0, 0, 0, 0, 0, 0];
   _collisionQueued = null;
   _onCollisionStatus = null;

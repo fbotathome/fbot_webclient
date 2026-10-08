@@ -1,21 +1,15 @@
-"""Bridge between the web client's "pick object" UI and the manipulation stack.
+"""Bridge between the web client's Pick Object card and the manipulation stack.
 
-The browser can't consume fbot_vision_msgs/Detection3DArray directly (each
-message carries the full RGB image, far too heavy for rosbridge JSON) nor
-ROS 2 actions (the vendored roslib predates action support). This node:
+Detection3DArray (it carries the full image) and ROS 2 actions don't fit
+rosbridge and the vendored roslib, so this node:
 
-  * announces the configured cameras on /fbot_webclient/pick/cameras;
-  * republishes each camera's latest detections as a small JSON summary
-    (/fbot_webclient/pick/detections), tagged with the camera id and keyed by
-    a sequence number;
-  * listens for a pick request ({"seq", "index"}) on /fbot_webclient/pick/request,
-    transforms that detection's 3D box into the target frame (link_base, like
-    fbot_behavior's ManipulationTaskMachine) and sends a ManipulationTask PICK goal;
-  * reports progress as JSON on /fbot_webclient/pick/status;
-  * cancels the running goal on /fbot_webclient/pick/cancel.
+  * announces the cameras on /fbot_webclient/pick/cameras;
+  * republishes each camera's detections as small JSON on /fbot_webclient/pick/detections;
+  * turns a request ({"seq", "index"}) on /fbot_webclient/pick/request into a
+    ManipulationTask PICK goal, with the box in the target frame;
+  * reports progress on /fbot_webclient/pick/status; /fbot_webclient/pick/cancel cancels.
 
-Cameras, target frame and action name come from ros_nodes/config/pick_bridge.yaml
-(override with --config <file>).
+Config: ros_nodes/config/pick_bridge.yaml (override with --config).
 """
 
 import argparse
@@ -78,14 +72,11 @@ def _rotate(q, v):
 
 
 def _target_aligned_box(pose, size, transform):
-    """Expresses a detection box in the target frame, axis-aligned with it.
+    """The box in the target frame, axis-aligned with it.
 
-    MTC's GenerateGraspPose samples grasps by rotating about the object's Z
-    axis, assuming it points up. Boxes from the camera are oriented like the
-    optical frame (Z out of the lens), so keep only the centre position,
-    reset the orientation to identity, and turn the dimensions into the
-    extents of the rotated box along the target X/Y/Z — the same thing
-    fbot_behavior's ManipulationTaskMachine + TransformPosesState do.
+    MTC samples grasps around the object's Z axis (assumed up), so the camera's
+    orientation is dropped and the size becomes the extents along the target
+    axes, as fbot_behavior's ManipulationTaskMachine does.
     """
     o = pose.orientation
     r = transform.transform.rotation
@@ -152,8 +143,6 @@ class PickObjectBridge(Node):
         names = ", ".join(f"{c['id']} ({c['detections_topic']})" for c in self._cameras)
         self.get_logger().info(f"Pick object bridge ready: target frame {self._target_frame}, cameras: {names}")
 
-    # ---- detections ---------------------------------------------------
-
     def _publish_cameras(self):
         cameras = [{"id": c["id"], "name": c["name"], "image_topic": c["image_topic"]} for c in self._cameras]
         self._cameras_pub.publish(String(data=json.dumps({
@@ -200,8 +189,6 @@ class PickObjectBridge(Node):
             ],
         }
         self._detections_pub.publish(String(data=json.dumps(summary)))
-
-    # ---- pick ---------------------------------------------------------
 
     def _publish_status(self, state, message, **extra):
         self._status_pub.publish(String(data=json.dumps({"state": state, "message": message, **extra})))
