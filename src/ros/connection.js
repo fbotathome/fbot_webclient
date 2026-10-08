@@ -168,3 +168,25 @@ export function callSaySomething(text, lang = "en") {
     );
   });
 }
+
+// ---- Vision ----------------------------------------------------------------
+
+// camera_info is a few hundred bytes and arrives with every frame, so it
+// tells the page a camera's resolution and frame rate without pulling the
+// images themselves through rosbridge (those go through web_video_server).
+export function subscribeCameraInfo(topicName, callback) {
+  const topic = createTopic(topicName, "sensor_msgs/CameraInfo");
+  return trackSubscription(topic, callback);
+}
+
+const _rosapiPublishers = createService("/rosapi/publishers", "rosapi_msgs/Publishers");
+/** Names of the nodes publishing `topicName` (rosapi, started with rosbridge). */
+export function callGetPublishers(topicName) {
+  return new Promise((resolve, reject) => {
+    _rosapiPublishers.callService(
+      new ROSLIB.ServiceRequest({ topic: topicName }),
+      (result) => resolve(result.publishers),
+      (error) => reject(error),
+    );
+  });
+}

@@ -3,7 +3,7 @@
 ROSBRIDGE_PORT=${ROSBRIDGE_PORT:-9090}
 HOST="0.0.0.0"
 HTTP_PORT=8080
-WEB_VIDEO_PORT=8081
+WEB_VIDEO_PORT=8181
 
 echo "Clearing service ports..."
 for port in $HTTP_PORT $WEB_VIDEO_PORT $ROSBRIDGE_PORT; do
@@ -24,7 +24,7 @@ fi
 
 ACCESS_URL="http://$LOCAL_IP:$HTTP_PORT?robot_ip=$LOCAL_IP"
 [ "$ROSBRIDGE_PORT" != "9090" ] && ACCESS_URL+="&rosbridge_port=$ROSBRIDGE_PORT"
-[ "$WEB_VIDEO_PORT" != "8081" ] && ACCESS_URL+="&video_port=$WEB_VIDEO_PORT"
+[ "$WEB_VIDEO_PORT" != "8181" ] && ACCESS_URL+="&video_port=$WEB_VIDEO_PORT"
 echo "Access: $ACCESS_URL"
 
 cleanup() {

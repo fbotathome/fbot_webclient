@@ -102,3 +102,55 @@
     color: var(--sidebar-muted);
     opacity: 0.5 !important;
 }
+
+.vision-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 16px;
+}
+
+.vision-camera-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--foreground);
+}
+
+.vision-camera-select {
+    padding: 8px 12px;
+    border-radius: calc(var(--radius) - 2px);
+    border: 1px solid var(--border);
+    background: var(--card-secondary);
+    color: var(--foreground);
+    font-family: inherit;
+    font-size: 14px;
+}
+
+/* Shown in place of the image when nothing arrives: says why, not just "Camera Feed". */
+.feed-placeholder-label.feed-placeholder-label--warning {
+    color: var(--primary);
+    opacity: 1;
+    font-weight: 600;
+    text-align: center;
+    padding: 0 16px;
+}
+
+.vision-feed--stalled .feed-img {
+    opacity: 0.25;
+}
+
+.vision-feed--stalled .feed-placeholder-label {
+    position: relative;
+    z-index: 1;
+    /* Readable on top of the dimmed last frame. */
+    background: rgba(0, 0, 0, 0.75);
+    padding: 8px 14px;
+    border-radius: calc(var(--radius) - 2px);
+}
+
+.vision-feed--stalled .feed-placeholder-icon {
+    position: relative;
+    z-index: 1;
+}
