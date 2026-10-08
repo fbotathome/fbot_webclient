@@ -7,6 +7,7 @@
         <link rel="stylesheet" href="css/layout.css" />
         <link rel="stylesheet" href="css/sidebar.css" />
         <link rel="stylesheet" href="css/dashboard.css" />
+        <link rel="stylesheet" href="css/navigation.css" />
         <link rel="stylesheet" href="css/manipulator.css" />
         <link rel="stylesheet" href="css/vision.css" />
         <link rel="stylesheet" href="css/emotions.css" />
@@ -154,7 +155,98 @@
                 </section>
 
                 <section id="page-navigation" class="page">
-                    <h2>Navigation</h2>
+                    <div class="nav-map-card">
+                        <div class="nav-map-header">
+                            <span>Map</span>
+                            <div class="nav-map-header-right">
+                                <span
+                                    id="nav-map-status"
+                                    class="vision-inactive"
+                                    >No map received</span
+                                >
+                                <label class="nav-group-label"
+                                    >Locations
+                                    <select
+                                        id="nav-group-select"
+                                        class="nav-group-select"
+                                        disabled
+                                    >
+                                        <option value="targets">
+                                            targets
+                                        </option>
+                                    </select>
+                                </label>
+                                <button
+                                    id="nav-pose-btn"
+                                    class="nav-small-btn"
+                                    title="Click and drag on the map where the robot really is (AMCL pose estimate)"
+                                    aria-pressed="false"
+                                >
+                                    Set pose
+                                </button>
+                                <button
+                                    id="nav-fit-btn"
+                                    class="nav-small-btn"
+                                    title="Reset zoom and pan"
+                                >
+                                    Fit
+                                </button>
+                            </div>
+                        </div>
+                        <div
+                            class="nav-map-wrapper"
+                            id="nav-map-wrapper"
+                        >
+                            <canvas id="nav-map-canvas"></canvas>
+                        </div>
+                        <div
+                            class="nav-status"
+                            id="nav-status"
+                            aria-live="polite"
+                        >
+                            <div class="nav-status-text">
+                                <span id="nav-status-title"
+                                    >No navigation goal</span
+                                >
+                                <span
+                                    id="nav-status-detail"
+                                    class="nav-status-detail"
+                                ></span>
+                            </div>
+                            <div class="nav-status-actions">
+                                <button
+                                    id="nav-go-btn"
+                                    class="nav-go-btn"
+                                    hidden
+                                >
+                                    Go
+                                </button>
+                                <button
+                                    id="nav-discard-btn"
+                                    class="nav-small-btn"
+                                    hidden
+                                >
+                                    Discard
+                                </button>
+                                <button
+                                    id="nav-cancel-btn"
+                                    class="nav-cancel-btn"
+                                    hidden
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                        <div class="nav-map-footer">
+                            <span id="nav-pose-readout">Pose: --</span>
+                            <span
+                                id="nav-goal-hint"
+                                class="nav-accent"
+                                >Wheel or pinch: zoom · right-drag or two fingers: pan · click
+                                or drag: pick a goal, then Go</span
+                            >
+                        </div>
+                    </div>
                 </section>
 
                 <section id="page-vision" class="page">
