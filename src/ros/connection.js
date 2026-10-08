@@ -601,3 +601,60 @@ export function callGetPublishers(topicName) {
     );
   });
 }
+
+// ---- Dashboard ---------------------------------------------------------------
+
+/** rosbridge connection state: callback(true|false) now and on every change. */
+export function onConnectionChange(callback) {
+  const up = () => callback(true);
+  const down = () => callback(false);
+  ros.on("connection", up);
+  ros.on("close", down);
+  callback(ros.isConnected);
+  return () => {
+    ros.off("connection", up);
+    ros.off("close", down);
+  };
+}
+
+// Heartbeats and shutdown of each computer (ros_nodes/powerNode.py, one per machine).
+export function subscribePowerStatus(machineId, callback) {
+  const topic = createTopic(`/fbot_webclient/power/${machineId}/status`, "std_msgs/String");
+  return trackSubscription(topic, (msg) => {
+    try {
+      callback(JSON.parse(msg.data));
+    } catch (e) {
+      console.error(`[ROS] Bad power status from ${machineId}:`, e);
+    }
+  });
+}
+
+export function callPowerShutdown(machineId) {
+  const client = createService(`/fbot_webclient/power/${machineId}/shutdown`, "std_srvs/Trigger");
+  return new Promise((resolve, reject) => {
+    client.callService(new ROSLIB.ServiceRequest({}), resolve, reject);
+  });
+}
+
+// System logs, collected by ros_nodes/logAggregator.py from /rosout.
+const _logs = createTopic("/fbot_webclient/logs", "std_msgs/String");
+export function subscribeLogs(callback) {
+  return trackSubscription(_logs, (msg) => {
+    try {
+      callback(JSON.parse(msg.data));
+    } catch (e) {
+      console.error("[ROS] Bad log batch:", e);
+    }
+  });
+}
+
+const _logHistory = createService("/fbot_webclient/logs/history", "std_srvs/Trigger");
+export function callLogHistory() {
+  return new Promise((resolve, reject) => {
+    _logHistory.callService(
+      new ROSLIB.ServiceRequest({}),
+      (result) => resolve(JSON.parse(result.message).entries),
+      reject,
+    );
+  });
+}

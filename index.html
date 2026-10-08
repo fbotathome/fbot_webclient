@@ -75,7 +75,18 @@
                 </header>
 
                 <section id="page-dashboard" class="page active">
-                    <section class="cards">
+                    <div
+                        class="dash-connection"
+                        id="dash-connection"
+                        aria-live="polite"
+                    >
+                        <span class="dash-dot"></span>
+                        <span id="dash-connection-text"
+                            >Connecting to the robot…</span
+                        >
+                    </div>
+
+                    <section class="cards" id="dash-cards">
                         <div class="card">
                             <h3 class="card-title">
                                 <img
@@ -85,6 +96,9 @@
                                 <span>CPU</span>
                             </h3>
                             <p class="card-value" id="cpu-val">--</p>
+                            <div class="dash-bar">
+                                <div class="dash-bar-fill" id="cpu-bar"></div>
+                            </div>
                         </div>
                         <div class="card">
                             <h3 class="card-title">
@@ -95,6 +109,13 @@
                                 <span>Memory</span>
                             </h3>
                             <p class="card-value" id="memory-val">--</p>
+                            <div class="dash-bar">
+                                <div
+                                    class="dash-bar-fill"
+                                    id="memory-bar"
+                                ></div>
+                            </div>
+                            <p class="dash-card-sub" id="memory-sub"></p>
                         </div>
                         <div class="card">
                             <h3 class="card-title">
@@ -104,9 +125,20 @@
                                 />
                                 <span>Network</span>
                             </h3>
-                            <p class="card-value" id="wifi-val">--</p>
+                            <p class="card-value dash-card-text" id="wifi-val">
+                                --
+                            </p>
+                            <div class="dash-bar">
+                                <div class="dash-bar-fill" id="wifi-bar"></div>
+                            </div>
+                            <p class="dash-card-sub" id="wifi-sub"></p>
                         </div>
-                        <div class="card">
+                        <button
+                            class="card dash-card-button"
+                            id="nodes-card"
+                            data-list="nodes"
+                            aria-expanded="false"
+                        >
                             <h3 class="card-title">
                                 <img
                                     src="assets/cards/radio.svg"
@@ -115,8 +147,14 @@
                                 <span>Nodes</span>
                             </h3>
                             <p class="card-value" id="nodes-val">--</p>
-                        </div>
-                        <div class="card">
+                            <p class="dash-card-sub">Show list</p>
+                        </button>
+                        <button
+                            class="card dash-card-button"
+                            id="topics-card"
+                            data-list="topics"
+                            aria-expanded="false"
+                        >
                             <h3 class="card-title">
                                 <img
                                     src="assets/cards/list.svg"
@@ -125,31 +163,85 @@
                                 <span>Topics</span>
                             </h3>
                             <p class="card-value" id="topics-val">--</p>
-                        </div>
+                            <p class="dash-card-sub">Show list</p>
+                        </button>
                     </section>
 
-                    <section class="logs">
-                        <h2>System Logs</h2>
+                    <section class="dash-list" id="dash-list" hidden>
+                        <div class="dash-list-header">
+                            <h2 id="dash-list-title">Nodes</h2>
+                            <input
+                                id="dash-list-filter"
+                                class="dash-list-filter"
+                                type="search"
+                                placeholder="Filter…"
+                                autocomplete="off"
+                            />
+                            <button id="dash-list-close" class="dash-btn">
+                                Close
+                            </button>
+                        </div>
+                        <ul id="dash-list-items" class="dash-list-items"></ul>
+                    </section>
+
+                    <section class="logs" id="dash-logs">
+                        <div class="dash-logs-header">
+                            <h2>System Logs</h2>
+                            <div class="dash-logs-tools">
+                                <select
+                                    id="logs-level"
+                                    class="dash-logs-input"
+                                    aria-label="Minimum level"
+                                >
+                                    <option value="10">All levels</option>
+                                    <option value="20">Info and up</option>
+                                    <option value="30" selected>
+                                        Warnings and up
+                                    </option>
+                                    <option value="40">Errors only</option>
+                                </select>
+                                <select
+                                    id="logs-node"
+                                    class="dash-logs-input"
+                                    aria-label="Node"
+                                >
+                                    <option value="">All nodes</option>
+                                </select>
+                                <input
+                                    id="logs-search"
+                                    class="dash-logs-input"
+                                    type="search"
+                                    placeholder="Search…"
+                                    autocomplete="off"
+                                />
+                                <button
+                                    id="logs-pause"
+                                    class="dash-btn"
+                                    aria-pressed="false"
+                                >
+                                    Pause
+                                </button>
+                                <button id="logs-clear" class="dash-btn">
+                                    Clear
+                                </button>
+                                <button id="logs-download" class="dash-btn">
+                                    Download
+                                </button>
+                            </div>
+                        </div>
+                        <div id="logs-summary" class="dash-logs-summary"></div>
+                        <p id="logs-notice" class="dash-logs-notice"></p>
+                        <div class="dash-logs-table-wrap">
+                            <table class="dash-logs-table">
+                                <tbody id="logs-rows"></tbody>
+                            </table>
+                        </div>
                     </section>
 
                     <section class="power">
                         <h2>Power Control</h2>
-                        <div class="power-grid">
-                            <div class="power-card">
-                                <h3>Jetson</h3>
-                                <p>Status: --</p>
-                                <button>Shutdown</button>
-                            </div>
-                            <div class="power-card">
-                                <h3>NUC</h3>
-                                <p>Status: ---</p>
-                                <button>Shutdown</button>
-                            </div>
-                            <div class="power-card">
-                                <h3>Full System</h3>
-                                <p>Shutdown everything</p>
-                                <button>Shutdown All</button>
-                            </div>
+                        <div class="dash-power-grid" id="dash-power-grid">
+                            <p class="dash-power-loading">Loading machines…</p>
                         </div>
                     </section>
                 </section>
