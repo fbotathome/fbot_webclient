@@ -3,6 +3,11 @@
 ROSBRIDGE_PORT=${ROSBRIDGE_PORT:-9090}
 HOST="0.0.0.0"
 HTTP_PORT=8080
+# Power control for this machine (Dashboard). It serves the web client, so it
+# powers off last and a bit later. The Jetson runs its own powerNode.py
+# (--machine jetson). POWER_MACHINE=none skips it. Shutting down needs a
+# sudoers rule; see ros_nodes/powerNode.py.
+POWER_MACHINE=${POWER_MACHINE:-nuc}
 WEB_VIDEO_PORT=8081
 
 echo "Clearing service ports..."
@@ -29,8 +34,8 @@ echo "Access: $ACCESS_URL"
 
 cleanup() {
   echo "\nShutting down services..."
-  kill $BRIDGE_PID $VIDEO_PID $STATUS_PID $HTTP_PID 2>/dev/null
-  wait $BRIDGE_PID $VIDEO_PID $STATUS_PID $HTTP_PID 2>/dev/null
+  kill $BRIDGE_PID $VIDEO_PID $STATUS_PID $LOGS_PID $POWER_PID $HTTP_PID 2>/dev/null
+  wait $BRIDGE_PID $VIDEO_PID $STATUS_PID $LOGS_PID $POWER_PID $HTTP_PID 2>/dev/null
   for port in $HTTP_PORT $WEB_VIDEO_PORT $ROSBRIDGE_PORT; do
     fuser -k $port/tcp 2>/dev/null || true
   done
@@ -47,6 +52,14 @@ VIDEO_PID=$!
 
 python3 "$PROJECT_DIR/ros_nodes/robotStatusPublisher.py" &
 STATUS_PID=$!
+
+python3 "$PROJECT_DIR/ros_nodes/logAggregator.py" &
+LOGS_PID=$!
+
+if [ "$POWER_MACHINE" != "none" ]; then
+  python3 "$PROJECT_DIR/ros_nodes/powerNode.py" --machine "$POWER_MACHINE" --shutdown-delay 5 &
+  POWER_PID=$!
+fi
 
 python3 -m http.server "$HTTP_PORT" --bind "$HOST" --directory "$PROJECT_DIR" &
 HTTP_PID=$!

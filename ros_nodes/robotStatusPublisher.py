@@ -11,6 +11,9 @@ class RobotStatusPublisher(Node):
     def __init__(self):
         super().__init__("robot_status_publisher")
         self._pub = self.create_publisher(String, "/fbot_webclient/robot_status", 10)
+        # cpu_percent(interval=None) measures since the previous call; the very
+        # first call has no baseline and returns 0.0, so take that one here.
+        psutil.cpu_percent(interval=None)
         self.create_timer(1.0, self._publish)
 
     def _publish(self):

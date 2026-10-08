@@ -1,0 +1,7 @@
+{
+  "_comment": "Computers shown in the Dashboard's Power Control. Each runs ros_nodes/powerNode.py --machine <id>. 'Shutdown All' powers them off in this order, so put the machine that serves the web client (rosbridge) last.",
+  "machines": [
+    { "id": "jetson", "name": "Jetson" },
+    { "id": "nuc", "name": "NUC" }
+  ]
+}

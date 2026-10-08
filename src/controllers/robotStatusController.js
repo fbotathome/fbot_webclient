@@ -14,6 +14,11 @@ export function startStatusMonitor(onChange) {
   };
 }
 
+/** ms since the last robot status message, or null if none arrived yet. */
+export function getStatusAge() {
+  return _lastUpdate ? Date.now() - _lastUpdate : null;
+}
+
 function _ensureSubscribed() {
   if (_unsubscribe) return;
   _unsubscribe = subscribeRobotStatus((data) => {
