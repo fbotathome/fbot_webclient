@@ -10,6 +10,7 @@ import {
   initNavigation,
   destroyNavigation,
 } from "./pages/navigationPage.js";
+import { initRosbag, destroyRosbag } from "./pages/rosbagPage.js";
 
 const pageHandlers = {
   dashboard: { init: initDashboard, destroy: destroyDashboard },
@@ -18,6 +19,7 @@ const pageHandlers = {
   vision: { init: initVision, destroy: destroyVision },
   emotions: { init: initEmotions, destroy: destroyEmotions },
   speech: { init: initSpeech, destroy: destroySpeech },
+  rosbag: { init: initRosbag, destroy: destroyRosbag },
 };
 
 let currentPage = null;

@@ -7,9 +7,11 @@ HTTP_PORT=8080
 # The Jetson runs its own powerNode.py. Powering off needs a sudoers rule (see powerNode.py).
 POWER_MACHINE=${POWER_MACHINE:-nuc}
 WEB_VIDEO_PORT=8181
+# Bag downloads (ros_nodes/bagRecorder.py); must match bag_port in src/config.js.
+BAG_PORT=8182
 
 echo "Clearing service ports..."
-for port in $HTTP_PORT $WEB_VIDEO_PORT $ROSBRIDGE_PORT; do
+for port in $HTTP_PORT $WEB_VIDEO_PORT $BAG_PORT $ROSBRIDGE_PORT; do
   fuser -k $port/tcp 2>/dev/null || true
 done
 sleep 2
@@ -28,13 +30,14 @@ fi
 ACCESS_URL="http://$LOCAL_IP:$HTTP_PORT?robot_ip=$LOCAL_IP"
 [ "$ROSBRIDGE_PORT" != "9090" ] && ACCESS_URL+="&rosbridge_port=$ROSBRIDGE_PORT"
 [ "$WEB_VIDEO_PORT" != "8181" ] && ACCESS_URL+="&video_port=$WEB_VIDEO_PORT"
+[ "$BAG_PORT" != "8182" ] && ACCESS_URL+="&bag_port=$BAG_PORT"
 echo "Access: $ACCESS_URL"
 
 cleanup() {
   echo "\nShutting down services..."
-  kill $BRIDGE_PID $VIDEO_PID $STATUS_PID $PICK_PID $LOGS_PID $POWER_PID $HTTP_PID 2>/dev/null
-  wait $BRIDGE_PID $VIDEO_PID $STATUS_PID $PICK_PID $LOGS_PID $POWER_PID $HTTP_PID 2>/dev/null
-  for port in $HTTP_PORT $WEB_VIDEO_PORT $ROSBRIDGE_PORT; do
+  kill $BRIDGE_PID $VIDEO_PID $STATUS_PID $PICK_PID $LOGS_PID $BAG_PID $POWER_PID $HTTP_PID 2>/dev/null
+  wait $BRIDGE_PID $VIDEO_PID $STATUS_PID $PICK_PID $LOGS_PID $BAG_PID $POWER_PID $HTTP_PID 2>/dev/null
+  for port in $HTTP_PORT $WEB_VIDEO_PORT $BAG_PORT $ROSBRIDGE_PORT; do
     fuser -k $port/tcp 2>/dev/null || true
   done
   echo "All services stopped."
@@ -57,12 +60,16 @@ PICK_PID=$!
 python3 "$PROJECT_DIR/ros_nodes/logAggregator.py" &
 LOGS_PID=$!
 
+# Bags go to ~/bags (ros_nodes/config/bag_recorder.yaml).
+python3 "$PROJECT_DIR/ros_nodes/bagRecorder.py" --http-port "$BAG_PORT" &
+BAG_PID=$!
+
 if [ "$POWER_MACHINE" != "none" ]; then
   python3 "$PROJECT_DIR/ros_nodes/powerNode.py" --machine "$POWER_MACHINE" --shutdown-delay 5 &
   POWER_PID=$!
 fi
 
-python3 -m http.server "$HTTP_PORT" --bind "$HOST" --directory "$PROJECT_DIR" &
+python3 "$SCRIPT_DIR/serve.py" --port "$HTTP_PORT" --bind "$HOST" --directory "$PROJECT_DIR" &
 HTTP_PID=$!
 
 wait
