@@ -10,6 +10,7 @@
         <link rel="stylesheet" href="css/navigation.css" />
         <link rel="stylesheet" href="css/manipulator.css" />
         <link rel="stylesheet" href="css/vision.css" />
+        <link rel="stylesheet" href="css/labeler.css" />
         <link rel="stylesheet" href="css/emotions.css" />
         <link rel="stylesheet" href="css/neck.css" />
         <link rel="stylesheet" href="css/rosbag.css" />
@@ -76,6 +77,10 @@
                     <a href="#" data-page="rosbag">
                         <img src="assets/sidebar/disc.svg" class="menu-icon" />
                         <span>Rosbag</span>
+                    </a>
+                    <a href="#" data-page="labeler">
+                        <img src="assets/sidebar/tag.svg" class="menu-icon" />
+                        <span>Labeler</span>
                     </a>
                 </div>
             </aside>
@@ -1236,6 +1241,118 @@
                         </div>
                         <p class="task-output-note" id="task-output-note"></p>
                     </section>
+                </section>
+
+                <section id="page-labeler" class="page">
+
+                    <div class="labeler-layout">
+
+                        <!-- Camera feed -->
+                        <div class="labeler-feed-card">
+                            <div class="labeler-feed-header">
+                                <img src="assets/sidebar/tag.svg" alt="" class="card-icon" />
+                                <span>Camera Feed</span>
+                            </div>
+
+                            <div class="labeler-feed-wrap" id="labeler-feed-wrap">
+                                <div class="labeler-feed-placeholder" id="labeler-feed-placeholder">
+                                    <img src="assets/sidebar/camera.svg" alt="" />
+                                    <span>Waiting for feed&hellip;</span>
+                                </div>
+                                <!-- Live MJPEG stream -->
+                                <img id="labeler-feed-img" class="labeler-feed-img" style="display:none" />
+                                <!-- Frozen frame shown after capture -->
+                                <img id="labeler-frozen-img" class="labeler-feed-img" style="display:none" />
+                                <!-- Analyzing overlay -->
+                                <div class="labeler-analyzing-overlay" id="labeler-analyzing-overlay" style="display:none">
+                                    <div class="labeler-spinner"></div>
+                                    <span>Analyzing&hellip;</span>
+                                </div>
+                                <div class="labeler-flash" id="labeler-flash"></div>
+                            </div>
+
+                            <div class="labeler-shutter-row">
+                                <button class="labeler-shutter-btn" id="labeler-shutter-btn">
+                                    <span class="shutter-icon"></span>
+                                    Capture
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Controls -->
+                        <div class="labeler-controls-card">
+
+                            <!-- Prediction result -->
+                            <div class="labeler-control-group">
+                                <span class="labeler-control-label">Prediction</span>
+                                <div class="labeler-prediction-box" id="labeler-prediction-box">
+                                    <span class="labeler-prediction-idle" id="labeler-prediction-idle">Capture an object to analyze</span>
+                                    <div class="labeler-prediction-result" id="labeler-prediction-result" style="display:none">
+                                        <input type="text" class="labeler-prediction-label" id="labeler-prediction-label" autocomplete="off" spellcheck="false" />
+                                        <div class="labeler-confidence">
+                                            <div class="labeler-confidence-bar">
+                                                <div class="labeler-confidence-fill" id="labeler-confidence-fill"></div>
+                                            </div>
+                                            <span class="labeler-confidence-value" id="labeler-confidence-value"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Confirm / Discard -->
+                            <div class="labeler-action-row" id="labeler-action-row" style="display:none">
+                                <button class="labeler-confirm-btn" id="labeler-confirm-btn">&#10003; Confirm</button>
+                                <button class="labeler-discard-btn" id="labeler-discard-btn">&#10005; Discard</button>
+                            </div>
+
+                            <!-- Split -->
+                            <div class="labeler-control-group">
+                                <span class="labeler-control-label">Split</span>
+                                <div class="labeler-split-toggle">
+                                    <button class="labeler-split-btn active" id="labeler-split-train">Train</button>
+                                    <button class="labeler-split-btn" id="labeler-split-valid">Valid</button>
+                                </div>
+                            </div>
+
+                            <!-- Stats -->
+                            <div class="labeler-control-group">
+                                <span class="labeler-control-label">Captured</span>
+                                <div class="labeler-stats">
+                                    <div class="labeler-stat-row">
+                                        <span>Train</span>
+                                        <span class="labeler-stat-value" id="labeler-stat-train">0</span>
+                                    </div>
+                                    <div class="labeler-stat-row">
+                                        <span>Valid</span>
+                                        <span class="labeler-stat-value" id="labeler-stat-valid">0</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="labeler-status">
+                                <div class="labeler-status-dot inactive" id="labeler-status-dot"></div>
+                                <span id="labeler-status-text">Idle</span>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- Gallery (dataset on disk + unsaved captures) -->
+                    <div class="labeler-gallery-card">
+                        <div class="labeler-gallery-header">
+                            <span class="labeler-gallery-title" id="labeler-gallery-title">Gallery</span>
+                            <div class="labeler-gallery-actions">
+                                <button class="labeler-gallery-clear" id="labeler-gallery-clear" style="display:none">Discard unsaved</button>
+                                <button class="labeler-gallery-action" id="labeler-gallery-select-all" style="display:none">Select all</button>
+                                <button class="labeler-gallery-action" id="labeler-gallery-select" style="display:none">Select</button>
+                                <button class="labeler-gallery-action primary" id="labeler-gallery-save" style="display:none" disabled>Save</button>
+                            </div>
+                        </div>
+                        <div class="labeler-gallery-grid" id="labeler-gallery-grid">
+                            <div class="labeler-gallery-empty" id="labeler-gallery-empty">No captures yet</div>
+                        </div>
+                    </div>
+
                 </section>
             </main>
         </div>

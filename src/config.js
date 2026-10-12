@@ -5,11 +5,14 @@ const rosbridgePort = params.get("rosbridge_port") || "9090";
 const videoPort = params.get("video_port") || "8181";
 // Bag downloads; must match BAG_PORT in scripts/start.sh.
 const bagPort = params.get("bag_port") || "8182";
+// Labeler page feed; must match LABELER_CAMERA_TOPIC in scripts/start.sh.
+const cameraTopic = params.get("camera_topic") || "/femtobolt/color/image_raw";
 
 const CONFIG = Object.freeze({
   rosbridgeUrl: `ws://${robotIp}:${rosbridgePort}`,
   videoServerUrl: `http://${robotIp}:${videoPort}`,
   bagServerUrl: `http://${robotIp}:${bagPort}`,
+  cameraTopic,
   reconnectTimeout: 3000,
 });
 

@@ -4,3 +4,4 @@ Thumbs.db
 .idea/
 *.log
 __pycache__/
+mock_ros/

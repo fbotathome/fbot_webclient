@@ -702,3 +702,29 @@ export function callTaskLaunchFiles() {
     );
   });
 }
+
+// Dataset labeler (ros_nodes/labelerNode.py).
+const _labelerRequest = createPublisher(
+  "/fbot_webclient/labeler/request",
+  "std_msgs/String",
+);
+
+export function publishLabelerRequest(data) {
+  _labelerRequest.publish(new ROSLIB.Message({ data: JSON.stringify(data) }));
+}
+
+const _labelerResponse = createTopic(
+  "/fbot_webclient/labeler/response",
+  "std_msgs/String",
+);
+
+export function subscribeLabelerResponse(callback) {
+  const wrapper = (msg) => {
+    try {
+      callback(JSON.parse(msg.data));
+    } catch (e) {
+      console.error("[ROS] Failed to parse labeler response:", e);
+    }
+  };
+  return trackSubscription(_labelerResponse, wrapper);
+}
