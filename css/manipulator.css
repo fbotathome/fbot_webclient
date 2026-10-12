@@ -368,3 +368,25 @@
     color: var(--danger);
     font-weight: 600;
 }
+
+/* Holding an object: the boxes are only shown, a click on the image marks where to place it. */
+.manip-pick-overlay--place {
+    cursor: crosshair;
+}
+
+.manip-pick-overlay--place .manip-pick-box {
+    pointer-events: none;
+    opacity: 0.5;
+}
+
+.manip-pick-target circle,
+.manip-pick-target line {
+    fill: none;
+    stroke: #4caf50;
+    stroke-width: 3;
+    vector-effect: non-scaling-stroke;
+}
+
+.manip-pick-target circle {
+    fill: rgba(76, 175, 80, 0.25);
+}

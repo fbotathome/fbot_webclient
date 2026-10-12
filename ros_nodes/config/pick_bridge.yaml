@@ -1,18 +1,26 @@
 # ros_nodes/pickObjectBridge.py configuration (plain YAML, not ROS params); BORIS v2 defaults.
 
-# Frame of the ManipulationTask object_pose, as in fbot_behavior's ManipulationTaskMachine.
-target_frame: link_base
+# Frame of the ManipulationTask object_pose: fbot_manipulator's MTC reads it in its
+# mtc.world_frame (config/xarm6/mtc_config.yaml), so keep the two equal.
+target_frame: world
 
 action_name: /fbot_manipulator/manipulation_task
 
 # First = default. detections_topic: fbot_vision_msgs/Detection3DArray;
 # image_topic: the image that detector runs on, so the boxes line up.
+# depth_topic + camera_info_topic (optional): enable "Place here" (click a spot on the image).
+# The depth image must be aligned to the colour image (RealSense: aligned_depth_to_color;
+# Femto Bolt: depth_registration on), and camera_info is the colour camera's.
 cameras:
   - id: realsense
     name: Wrist (RealSense)
     detections_topic: /fbot_vision/realsense/object_recognition
     image_topic: /realsense/color/image_raw
+    depth_topic: /realsense/aligned_depth_to_color/image_raw
+    camera_info_topic: /realsense/color/camera_info
   - id: femtobolt
     name: Head (Femto Bolt)
     detections_topic: /fbot_vision/femtobolt/object_recognition
     image_topic: /femtobolt/color/image_raw
+    depth_topic: /femtobolt/depth/image_raw
+    camera_info_topic: /femtobolt/color/camera_info

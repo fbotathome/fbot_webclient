@@ -7,6 +7,7 @@ import {
   moveToPoseQuaternion,
   quaternionToRpyDeg,
   onJointDragEnd,
+  onJointPositions,
   onEndEffectorDragEnd,
   onCollisionStatus,
   confirmPendingTarget,
@@ -21,6 +22,9 @@ import {
   selectDetection,
   selectCamera,
   requestPick,
+  requestPlace,
+  setPlaceTarget,
+  canPlaceHere,
   cancelPick,
   isPickRunning,
   displayLabel,
@@ -41,6 +45,8 @@ let _namedTargetApplyBtn = null;
 let _jointSliders = [];
 let _jointValueEls = [];
 let _jointsApplyBtn = null;
+// While the user is setting a target, the sliders stop following the arm.
+let _jointsEditing = false;
 
 let _targetConfirmBar = null;
 let _targetConfirmText = null;
@@ -53,6 +59,8 @@ let _pickStatusEl = null;
 let _pickProgressBar = null;
 let _pickApplyBtn = null;
 let _pickCancelBtn = null;
+let _pickPlaceBtn = null;
+let _pickPutBackBtn = null;
 
 function _scheduleTimer(fn, ms) {
   const id = setTimeout(() => {
@@ -119,6 +127,15 @@ function _onJointInput(index) {
   }
 }
 
+function _syncJointSliders(positions) {
+  if (_jointsEditing) return;
+  positions.forEach((value, i) => {
+    if (!_jointSliders[i]) return;
+    _jointSliders[i].value = value;
+    _onJointInput(i);
+  });
+}
+
 function _describeCollision(status) {
   switch (status.state) {
     case "checking":
@@ -156,24 +173,38 @@ function _renderTargetConfirm() {
   }
 }
 
-function _describePick({ selection, status }) {
+function _describeIdle({ selection, held, placeTarget }) {
+  if (held) {
+    const name = displayLabel(held.label);
+    if (!canPlaceHere()) return `Holding ${name} — press Put back (this camera has no depth to place elsewhere)`;
+    return placeTarget
+      ? `Holding ${name} — press Place here, or click another spot`
+      : `Holding ${name} — click a spot on the image to place it, or press Put back`;
+  }
+  return selection
+    ? `Selected: ${displayLabel(selection.label)} — press Pick to grab it`
+    : "Click an object in the image to select it";
+}
+
+function _describePick(state) {
+  const { selection, status } = state;
+  const placing = status.action === "place";
+  const object = displayLabel(status.object || selection?.label || "");
   switch (status.state) {
     case "sending":
     case "running":
-      return `Picking ${displayLabel(status.object || selection?.label || "")}: ${status.message}`;
+      return `${placing ? "Placing" : "Picking"} ${object}: ${status.message}`;
     case "canceling":
-      return "Canceling pick…";
+      return placing ? "Canceling place…" : "Canceling pick…";
     case "succeeded":
-      return `Picked ${displayLabel(status.object || "")}.`;
+      return placing ? `Placed ${object}.` : `Picked ${object}. ${_describeIdle(state)}`;
     case "failed":
     case "rejected":
-      return `Pick failed: ${status.message}`;
+      return `${placing ? "Place" : "Pick"} failed: ${status.message}`;
     case "canceled":
-      return "Pick canceled.";
+      return placing ? "Place canceled." : "Pick canceled.";
     default:
-      return selection
-        ? `Selected: ${displayLabel(selection.label)} — press Pick to grab it`
-        : "Click an object in the image to select it";
+      return _describeIdle(state);
   }
 }
 
@@ -192,7 +223,20 @@ function _renderPick(state) {
     const progress = running || state.status.state === "succeeded" ? state.status.progress || 0 : 0;
     _pickProgressBar.style.width = `${Math.round(progress * 100)}%`;
   }
-  if (_pickApplyBtn) _pickApplyBtn.disabled = !state.selection || running;
+  // Holding an object: Place here / Put back instead of Pick.
+  const holding = !!state.held;
+  if (_pickApplyBtn) {
+    _pickApplyBtn.hidden = holding;
+    _pickApplyBtn.disabled = !state.selection || running;
+  }
+  if (_pickPlaceBtn) {
+    _pickPlaceBtn.hidden = !holding || !canPlaceHere();
+    _pickPlaceBtn.disabled = !state.placeTarget || running;
+  }
+  if (_pickPutBackBtn) {
+    _pickPutBackBtn.hidden = !holding;
+    _pickPutBackBtn.disabled = running || state.held?.can_put_back === false;
+  }
   if (_pickCancelBtn) _pickCancelBtn.hidden = !running;
 }
 
@@ -225,6 +269,7 @@ export function initManipulator() {
     "click",
     () => {
       const target = _namedTargetSelect.value;
+      _jointsEditing = false;
       _runCommand(_namedTargetApplyBtn, `Named target '${target}'`, () =>
         moveToNamedTarget(target),
       );
@@ -239,14 +284,26 @@ export function initManipulator() {
     document.getElementById(`manip-joint-${i + 1}-value`),
   );
   _jointSliders.forEach((slider, i) => {
-    slider.addEventListener("input", () => _onJointInput(i), { signal });
+    slider.addEventListener("pointerdown", () => (_jointsEditing = true), { signal });
+    slider.addEventListener(
+      "input",
+      () => {
+        _jointsEditing = true;
+        _onJointInput(i);
+      },
+      { signal },
+    );
   });
+  _syncJointSliders(getCurrentJointPositions());
+  onJointPositions(_syncJointSliders);
 
   _jointsApplyBtn = document.getElementById("manip-joints-apply");
   _jointsApplyBtn.addEventListener(
     "click",
     () => {
       const positions = _jointSliders.map((slider) => Number(slider.value));
+      // Sent: the sliders follow the arm again, showing where it actually goes.
+      _jointsEditing = false;
       _runCommand(_jointsApplyBtn, "Joints", () =>
         moveToJointTarget(positions),
       );
@@ -273,6 +330,7 @@ export function initManipulator() {
     }
 
     const positions = getCurrentJointPositions();
+    _jointsEditing = false;
     _runCommand(null, `Joint '${jointName}' (drag)`, () =>
       moveToJointTarget(positions),
     );
@@ -304,6 +362,7 @@ export function initManipulator() {
       if (_targetConfirmBar) _targetConfirmBar.hidden = true;
       _pendingTarget = null;
 
+      _jointsEditing = false;
       _runCommand(_targetConfirmBtn, "End effector (drag)", () =>
         moveToPoseQuaternion(position, orientation),
       );
@@ -325,10 +384,14 @@ export function initManipulator() {
   _pickProgressBar = document.getElementById("manip-pick-progress-bar");
   _pickApplyBtn = document.getElementById("manip-pick-apply");
   _pickCancelBtn = document.getElementById("manip-pick-cancel");
+  _pickPlaceBtn = document.getElementById("manip-pick-place");
+  _pickPutBackBtn = document.getElementById("manip-pick-put-back");
 
-  PickView.initView(selectDetection, selectCamera, signal);
+  PickView.initView(selectDetection, selectCamera, signal, setPlaceTarget);
   startPick(_renderPick);
   _pickApplyBtn.addEventListener("click", requestPick, { signal });
+  _pickPlaceBtn.addEventListener("click", () => requestPlace("point"), { signal });
+  _pickPutBackBtn.addEventListener("click", () => requestPlace("back"), { signal });
   _pickCancelBtn.addEventListener("click", cancelPick, { signal });
 
   console.log("[manipulator] Page initialized.");
@@ -360,6 +423,7 @@ export function destroyManipulator() {
   _jointSliders = [];
   _jointValueEls = [];
   _jointsApplyBtn = null;
+  _jointsEditing = false;
 
   _targetConfirmBar = null;
   _targetConfirmText = null;
@@ -372,6 +436,8 @@ export function destroyManipulator() {
   _pickProgressBar = null;
   _pickApplyBtn = null;
   _pickCancelBtn = null;
+  _pickPlaceBtn = null;
+  _pickPutBackBtn = null;
 
   console.log("[manipulator] Page destroyed.");
 }

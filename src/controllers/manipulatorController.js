@@ -22,6 +22,7 @@ const CONTACT_ROBOT_LINK = 0; // moveit_msgs/ContactInformation.ROBOT_LINK
 let _collisionInFlight = false;
 let _collisionQueued = null;
 let _onCollisionStatus = null;
+let _onJointPositions = null;
 
 // Joint limits (rad) from assets/xarm6/xarm6.urdf
 export const JOINT_LIMITS = [
@@ -61,10 +62,15 @@ export function startManipulator() {
 
   _unsubscribe = subscribeJointStates((msg) => {
     ManipulatorView.updateJoints(msg);
+    let armJoints = false;
     msg.name.forEach((name, i) => {
       const idx = JOINT_LIMITS.findIndex((j) => j.name === name);
-      if (idx !== -1) _currentJointPositions[idx] = msg.position[i];
+      if (idx !== -1) {
+        _currentJointPositions[idx] = msg.position[i];
+        armJoints = true;
+      }
     });
+    if (armJoints && _onJointPositions) _onJointPositions(getCurrentJointPositions());
   });
   console.log("[manipulator] subscribed to /joint_states");
 }
@@ -122,6 +128,12 @@ export function onCollisionStatus(callback) {
   _onCollisionStatus = callback;
 }
 
+// Callback receives the arm's joint positions (rad, JOINT_LIMITS order) on every
+// /joint_states message that carries them.
+export function onJointPositions(callback) {
+  _onJointPositions = callback;
+}
+
 export function onJointDragEnd(callback) {
   ManipulatorView.onJointDragEnd(callback);
 }
@@ -157,6 +169,7 @@ export function stopManipulator() {
   _currentJointPositions = [0, 0, 0, 0, 0, 0];
   _collisionQueued = null;
   _onCollisionStatus = null;
+  _onJointPositions = null;
   ManipulatorView.destroyView();
 }
 

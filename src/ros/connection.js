@@ -70,6 +70,10 @@ export const TOPICS = Object.freeze({
     name: "/fbot_webclient/pick/cancel",
     type: "std_msgs/Empty",
   },
+  pickPlace: {
+    name: "/fbot_webclient/pick/place",
+    type: "std_msgs/String",
+  },
   pickStatus: {
     name: "/fbot_webclient/pick/status",
     type: "std_msgs/String",
@@ -261,6 +265,12 @@ export function publishPickRequest(seq, index) {
   _pickRequest.publish(
     new ROSLIB.Message({ data: JSON.stringify({ seq, index }) }),
   );
+}
+
+const _pickPlace = createPublisher(TOPICS.pickPlace.name, TOPICS.pickPlace.type);
+// request: { mode: "back" } or { mode: "point", camera, u, v, image_width, image_height }
+export function publishPickPlace(request) {
+  _pickPlace.publish(new ROSLIB.Message({ data: JSON.stringify(request) }));
 }
 
 const _pickCancel = createPublisher(
