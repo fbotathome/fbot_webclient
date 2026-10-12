@@ -11,6 +11,7 @@ import {
   destroyNavigation,
 } from "./pages/navigationPage.js";
 import { initRosbag, destroyRosbag } from "./pages/rosbagPage.js";
+import { initTasks, destroyTasks } from "./pages/tasksPage.js";
 
 const pageHandlers = {
   dashboard: { init: initDashboard, destroy: destroyDashboard },
@@ -20,6 +21,7 @@ const pageHandlers = {
   emotions: { init: initEmotions, destroy: destroyEmotions },
   speech: { init: initSpeech, destroy: destroySpeech },
   rosbag: { init: initRosbag, destroy: destroyRosbag },
+  tasks: { init: initTasks, destroy: destroyTasks },
 };
 
 let currentPage = null;

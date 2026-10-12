@@ -1,0 +1,342 @@
+# ros_nodes/taskRunner.py configuration (plain YAML, not ROS params).
+#
+# Components are launch files (or executables) that each run as their own process, so
+# they can be started, stopped and restarted one by one. A task lists the components it
+# needs, with the launch arguments it gives them (name: value, passed as name:=value),
+# and its steps, run one at a time with `ros2 run <steps_package> <executable>`.
+# Generated from fbot_behavior/launch/<task>.launch.py; edit freely.
+#
+# Executable components take argv instead of launch arguments; in argv,
+# {share:<package>} is replaced by that package's share directory.
+
+steps_package: fbot_behavior
+start_gap_s: 2  # Start all: delay between one component and the next
+
+components:
+  description: {name: Description, package: fbot_bringup, launch: description.launch.py}
+  manipulator: {name: Manipulator, package: fbot_bringup, launch: manipulator.launch.py}
+  navigation: {name: Navigation, package: fbot_bringup, launch: navigation.launch.py}
+  navigation_map: {name: Navigation (map select), package: fbot_navigation, launch: select_navigation.launch.py}
+  slam: {name: SLAM, package: fbot_navigation, launch: slam.launch.py}
+  world: {name: World poses, package: fbot_bringup, launch: world.launch.py}
+  camera: {name: Camera, package: fbot_bringup, launch: camera.launch.py}
+  neck: {name: Neck, package: fbot_bringup, launch: neck.launch.py}
+  face_recognition: {name: Face recognition, package: fbot_bringup, launch: face_recognition.launch.py}
+  hotword: {name: Hotword detector, package: fbot_bringup, launch: hotword_detector.launch.py}
+  moondream: {name: Moondream objects, package: fbot_recognition, launch: moondream_object_recognition.launch.py}
+  riva_stt: {name: Riva STT, package: fbot_bringup, launch: riva_speech_to_text.launch.py}
+  tts: {name: Speech synthesizer, package: fbot_bringup, launch: synthesizer_speech.launch.py}
+  vlm: {name: VLM, package: fbot_bringup, launch: vlm.launch.py}
+  vlm_direct: {name: VLM (fbot_vlm), package: fbot_vlm, launch: vlm.launch.py}
+  yolo_tracker: {name: YOLO people tracker, package: fbot_bringup, launch: yolo_tracker_recognition.launch.py}
+  yolov8: {name: YOLOv8 objects, package: fbot_bringup, launch: yolov8_object_recognition.launch.py}
+  rviz:
+    name: RViz
+    package: rviz2
+    executable: rviz2
+    autostart: false  # left out of Start all: needs a screen on the robot
+    argv: [--ros-args, --log-level, 'rviz2:=warn']
+
+tasks:
+
+  receptionist:
+    name: Receptionist
+    components:
+      - description: {arm_z_position: "0.23"}
+      - manipulator: {arm_type: "wx200"}
+      - navigation
+      - world: {config_file_name: "receptionist_poses"}
+      - camera: {use_realsense: "false", use_femtobolt: "true"}
+      - neck
+      - face_recognition: {use_remote: "false", use_realsense: "false", use_femtobolt: "false"}
+      - yolov8: {use_remote: "false", use_realsense: "false", use_femtobolt: "false"}
+      - tts: {use_remote: "false"}
+      - riva_stt: {use_remote: "false"}
+      - vlm: {vlm_api_type: "ollama", vlm_api_model: "llama3.2-vision", vlm_api_host: "http://192.168.4.102:11434"}
+      - rviz: {argv: ["-d", "{share:fbot_behavior}/task/config/rviz/receptionist.rviz"]}
+    steps:
+      - {name: Save poses, executable: save_poses_receptionist}
+      - {name: Run, executable: receptionist}
+
+  storing_groceries:
+    name: Storing Groceries
+    components:
+      - description: {arm_z_position: "0.23"}
+      - manipulator: {arm_type: "wx200"}
+      - navigation: {use_navigation_rviz: "false"}
+      - world: {config_file_name: "storing_groceries_poses"}
+      - camera: {use_realsense: "false", use_femtobolt: "true"}
+      - neck
+      - yolov8: {use_remote: "true", use_realsense: "false", use_femtobolt: "false"}
+      - tts: {use_remote: "false"}
+      - rviz: {argv: ["-d", "{share:fbot_behavior}/task/config/rviz/storing_groceries.rviz"]}
+    steps:
+      - {name: Setup, executable: setup_storing_groceries}
+      - {name: Run, executable: storing_groceries}
+
+  clean_the_table:
+    name: Clean the Table
+    components:
+      - description: {arm_z_position: "0.23"}
+      - manipulator: {arm_type: "wx200"}
+      - navigation: {use_navigation_rviz: "true"}
+      - world: {config_file_name: "pose_clean_the_table"}
+      - camera: {use_realsense: "false", use_femtobolt: "true"}
+      - neck
+      - yolov8: {use_remote: "false", use_realsense: "false", use_femtobolt: "false"}
+      - tts: {use_remote: "true"}
+    steps:
+      - {name: Run, executable: clean_the_table}
+
+  clean_up:
+    name: Clean Up
+    components:
+      - description: {arm_z_position: "0.23"}
+      - manipulator: {arm_type: "wx200"}
+      - navigation: {use_navigation_rviz: "false"}
+      - world: {config_file_name: "clean_up_poses"}
+      - camera: {use_realsense: "false", use_femtobolt: "true"}
+      - neck
+      - yolov8: {use_remote: "true", use_realsense: "false", use_femtobolt: "false"}
+      - tts: {use_remote: "false"}
+      - riva_stt: {use_remote: "false"}
+      - rviz: {argv: ["-d", "{share:fbot_behavior}/task/config/rviz/storing_groceries.rviz"]}
+    steps:
+      - {name: Setup, executable: clean_up_setup}
+      - {name: Run, executable: clean_up}
+
+  pick_and_place:
+    name: Pick and Place
+    components:
+      - description: {arm_z_position: "0.42"}
+      - navigation_map: {use_navigation_rviz: "false", map_file: "arena_1.yaml"}
+      - world: {config_file_name: "pick_place_poses"}
+      - neck
+      - yolov8: {use_remote: "true", use_realsense: "false", use_femtobolt: "false"}
+      - tts: {use_remote: "false"}
+      - rviz: {argv: ["-d", "{share:fbot_behavior}/task/config/rviz/storing_groceries.rviz"]}
+    steps:
+      - {name: Setup, executable: pick_and_place_setup}
+      - {name: Run, executable: pick_and_place}
+
+  mor:
+    name: Manipulation & Object Recognition
+    components:
+      - description: {arm_z_position: "0.23"}
+      - manipulator: {arm_type: "wx200"}
+      - navigation: {use_navigation_rviz: "false"}
+      - world: {config_file_name: "mor_poses"}
+      - camera: {use_realsense: "false", use_femtobolt: "true"}
+      - neck
+      - yolov8: {use_remote: "true", use_realsense: "false", use_femtobolt: "false"}
+      - tts: {use_remote: "false"}
+      - rviz: {argv: ["-d", "{share:fbot_behavior}/task/config/rviz/storing_groceries.rviz"]}
+    steps:
+      - {name: Setup, executable: mor_setup}
+      - {name: Run, executable: mor}
+
+  gpsr:
+    name: GPSR (agent)
+    components:
+      - description: {arm_z_position: "0.23"}
+      - manipulator: {arm_type: "wx200"}
+      - navigation
+      - world: {config_file_name: "pose_gpsr"}
+      - camera: {use_realsense: "false", use_femtobolt: "true"}
+      - neck
+      - tts: {use_remote: "false"}
+      - hotword
+      - riva_stt: {use_remote: "false"}
+      - moondream: {use_remote: "true", use_realsense: "false", use_femtobolt: "false"}
+      - rviz: {argv: ["-d", "{share:fbot_behavior}/task/config/rviz/receptionist.rviz"]}
+    steps:
+      - {name: Setup, executable: gpsr_setup}
+      - {name: Run, executable: gpsr_agent}
+
+  gpsr_3cmd:
+    name: GPSR (3 commands)
+    components:
+      - description: {arm_z_position: "0.42"}
+      - navigation_map: {map_file: "arena_2.yaml"}
+      - world: {config_file_name: "pose_gpsr_arena3"}
+      - camera: {use_remote: "true", use_realsense: "false", use_femtobolt: "true"}
+      - neck
+      - tts: {use_remote: "false"}
+      - vlm_direct
+      - yolo_tracker: {use_remote: "true", use_realsense: "false", use_femtobolt: "true"}
+      - rviz: {argv: ["-d", "{share:fbot_behavior}/task/config/rviz/receptionist.rviz"]}
+    steps:
+      - {name: Setup, executable: gpsr_setup}
+      - {name: Run, executable: gpsr_3cmd}
+
+  egpsr:
+    name: EGPSR
+    components:
+      - description: {arm_z_position: "0.23"}
+      - manipulator: {arm_type: "wx200"}
+      - navigation
+      - world: {config_file_name: "egpsr_poses"}
+      - camera: {use_realsense: "false", use_femtobolt: "true"}
+      - neck
+      - tts: {use_remote: "false"}
+      - yolo_tracker: {use_remote: "false", use_realsense: "false", use_femtobolt: "false"}
+      - riva_stt: {use_remote: "false"}
+      - vlm: {vlm_api_type: "ollama", vlm_api_model: "llama3.2-vision", vlm_api_host: "http://192.168.4.102:11434"}
+      - rviz: {argv: ["-d", "{share:fbot_behavior}/task/config/rviz/receptionist.rviz"]}
+    steps:
+      - {name: Run, executable: egpsr}
+
+  help_me_carry:
+    name: Help Me Carry
+    components:
+      - description: {arm_z_position: "0.23"}
+      - manipulator: {arm_type: "wx200"}
+      - navigation
+      - world: {config_file_name: "help_me_carry"}
+      - camera: {use_realsense: "false", use_femtobolt: "true"}
+      - neck
+      - tts: {use_remote: "true"}
+      - yolo_tracker: {use_remote: "true", use_realsense: "false", use_femtobolt: "false"}
+      - hotword
+      - rviz: {argv: ["-d", "{share:fbot_behavior}/task/config/rviz/help_me_carry.rviz"]}
+    steps:
+      - {name: Run, executable: help_me_carry}
+
+  restaurant:
+    name: Restaurant
+    components:
+      - description: {arm_z_position: "0.23"}
+      - navigation: {use_navigation_rviz: "false"}
+      - camera: {use_realsense: "false", use_femtobolt: "true"}
+      - neck
+      - yolo_tracker: {use_remote: "false", use_realsense: "false", use_femtobolt: "false"}
+      - tts: {use_remote: "false"}
+      - riva_stt: {use_remote: "false"}
+      - hotword: {hotword_config_file: "fbot_hotword_restaurant.yaml"}
+      - rviz: {argv: ["-d", "{share:fbot_behavior}/task/config/rviz/restaurant.rviz"]}
+    steps:
+      - {name: Run, executable: restaurant}
+
+  restaurant_mapless:
+    name: Restaurant (mapless)
+    components:
+      - description: {arm_z_position: "0.23"}
+      - slam: {use_rviz_slam: "false"}
+      - camera: {use_realsense: "false", use_femtobolt: "true"}
+      - neck
+      - yolo_tracker: {use_remote: "true", use_realsense: "false", use_femtobolt: "false"}
+      - tts: {use_remote: "false"}
+      - hotword: {hotword_config_file: "fbot_hotword_restaurant.yaml"}
+      - rviz: {argv: ["-d", "{share:fbot_behavior}/task/config/rviz/restaurant.rviz"]}
+    steps:
+      - {name: Run, executable: restaurant}
+
+  inspection:
+    name: Inspection
+    components:
+      - navigation_map: {use_navigation_rviz: "false", map_file: "arena_1.yaml"}
+      - world: {config_file_name: "pose_inspection"}
+      - neck
+      - tts: {use_remote: "false"}
+      - hotword
+    steps:
+      - {name: Setup, executable: setup_inspection}
+      - {name: Run, executable: inspection}
+
+  personal_recognition:
+    name: Personal Recognition
+    components:
+      - description: {arm_z_position: "0.23"}
+      - navigation
+      - world: {config_file_name: "personal_pose"}
+      - camera: {use_realsense: "false", use_femtobolt: "true"}
+      - neck
+      - tts: {use_remote: "false"}
+      - hotword: {hotword_config_file: "fbot_hotword_personal.yaml"}
+      - rviz: {argv: ["-d", "{share:fbot_behavior}/task/config/rviz/receptionist.rviz"]}
+    steps:
+      - {name: Setup, executable: personal_setup}
+      - {name: Run, executable: personal}
+
+  navigation_follow:
+    name: Navigation Follow
+    components:
+      - description: {arm_z_position: "0.23"}
+      - navigation
+      - world: {config_file_name: "pose_navigation_follow"}
+      - camera: {use_realsense: "false", use_femtobolt: "true"}
+      - neck
+      - tts: {use_remote: "false"}
+      - yolo_tracker: {use_remote: "true", use_realsense: "false", use_femtobolt: "false"}
+      - hotword
+      - rviz: {argv: ["-d", "{share:fbot_behavior}/task/config/rviz/help_me_carry.rviz"]}
+    steps:
+      - {name: Setup, executable: setup_navigation_follow}
+      - {name: Run, executable: navigation_follow}
+
+  hri:
+    name: HRI
+    components:
+      - description: {arm_z_position: "0.23"}
+      - navigation_map: {use_navigation_rviz: "false", map_file: "arena_1.yaml"}
+      - world: {config_file_name: "hri_arena1"}
+      - camera: {use_realsense: "false", use_femtobolt: "true", use_remote: "true"}
+      - neck
+      - tts: {use_remote: "false"}
+      - hotword: {hotword_config_file: "fbot_hotword_personal.yaml"}
+      - yolo_tracker: {use_remote: "true", use_realsense: "false", use_femtobolt: "true"}
+      - face_recognition: {use_remote: "true", use_realsense: "false", use_femtobolt: "false"}
+      - vlm: {vlm_api_model: "openrouter/google/gemini-3-flash-preview", vlm_api_host: "http://192.168.4.102:11434"}
+      - rviz: {argv: ["-d", "{share:fbot_behavior}/task/config/rviz/hri.rviz"]}
+    steps:
+      - {name: Setup, executable: setup_hri}
+      - {name: Approach, executable: hri_approach}
+      - {name: Approach (doorbell), executable: hri_approach_doorbell}
+
+  laundry:
+    name: Laundry
+    components:
+      - description: {arm_z_position: "0.23"}
+      - navigation_map: {map_file: "arena_3.yaml", use_navigation_rviz: "true"}
+      - world: {config_file_name: "pose_gpsr_arena3"}
+      - camera: {use_realsense: "false", use_femtobolt: "true"}
+      - neck
+      - yolov8: {use_remote: "false", use_realsense: "false", use_femtobolt: "false"}
+      - tts: {use_remote: "false"}
+    steps:
+      - {name: Setup, executable: setup_laundry}
+      - {name: Run, executable: laundry_nav}
+
+  quiz:
+    name: Quiz
+    components:
+      - neck
+      - vlm_direct: {vlm_api_model: "gemma3:4b", vlm_api_host: "http://192.168.4.102:11434", vlm_api_type: "ollama"}
+      - tts: {use_remote: "false"}
+      - riva_stt: {use_remote: "false"}
+      - hotword
+    steps:
+      - {name: Run, executable: quiz}
+
+  final:
+    name: Final
+    components:
+      - description: {arm_z_position: "0.23"}
+      - manipulator: {arm_type: "wx200"}
+      - navigation
+      - world: {config_file_name: "pose_gpsr"}
+      - camera: {use_realsense: "false", use_femtobolt: "true"}
+      - neck
+      - tts: {use_remote: "false"}
+      - hotword
+      - vlm_direct: {vlm_api_type: "google-genai", vlm_api_model: "gemini-2.5-flash", vlm_api_host: "http://192.168.4.102:11434"}
+      - moondream: {use_remote: "true", use_realsense: "false", use_femtobolt: "false"}
+      - rviz: {argv: ["-d", "{share:fbot_behavior}/task/config/rviz/receptionist.rviz"]}
+    steps:
+      - {name: Run, executable: final}
+
+  reference:
+    name: Reference task
+    components: []
+    steps:
+      - {name: Run, executable: reference_task_node}

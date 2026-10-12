@@ -35,8 +35,8 @@ echo "Access: $ACCESS_URL"
 
 cleanup() {
   echo "\nShutting down services..."
-  kill $BRIDGE_PID $VIDEO_PID $STATUS_PID $PICK_PID $LOGS_PID $BAG_PID $POWER_PID $HTTP_PID 2>/dev/null
-  wait $BRIDGE_PID $VIDEO_PID $STATUS_PID $PICK_PID $LOGS_PID $BAG_PID $POWER_PID $HTTP_PID 2>/dev/null
+  kill $BRIDGE_PID $VIDEO_PID $STATUS_PID $PICK_PID $LOGS_PID $BAG_PID $TASKS_PID $POWER_PID $HTTP_PID 2>/dev/null
+  wait $BRIDGE_PID $VIDEO_PID $STATUS_PID $PICK_PID $LOGS_PID $BAG_PID $TASKS_PID $POWER_PID $HTTP_PID 2>/dev/null
   for port in $HTTP_PORT $WEB_VIDEO_PORT $BAG_PORT $ROSBRIDGE_PORT; do
     fuser -k $port/tcp 2>/dev/null || true
   done
@@ -63,6 +63,11 @@ LOGS_PID=$!
 # Bags go to ~/bags (ros_nodes/config/bag_recorder.yaml).
 python3 "$PROJECT_DIR/ros_nodes/bagRecorder.py" --http-port "$BAG_PORT" &
 BAG_PID=$!
+
+# Runs fbot_behavior bringups and tasks (ros_nodes/config/task_runner.yaml); needs the
+# workspace sourced (~/fbot_ws/install/setup.bash) before this script.
+python3 "$PROJECT_DIR/ros_nodes/taskRunner.py" &
+TASKS_PID=$!
 
 if [ "$POWER_MACHINE" != "none" ]; then
   python3 "$PROJECT_DIR/ros_nodes/powerNode.py" --machine "$POWER_MACHINE" --shutdown-delay 5 &
