@@ -1,0 +1,219 @@
+.neck-control-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 20px;
+}
+
+.neck-section-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--foreground);
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.neck-joystick-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.neck-joystick-pad {
+    position: relative;
+    width: 220px;
+    height: 220px;
+    max-width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 50%;
+    background: radial-gradient(
+        circle at center,
+        var(--card-secondary) 0%,
+        var(--card) 70%
+    );
+    border: 1px solid var(--border);
+    touch-action: none;
+    cursor: grab;
+    outline: none;
+}
+
+.neck-joystick-pad:active {
+    cursor: grabbing;
+}
+
+.neck-joystick-pad:focus-visible {
+    box-shadow: 0 0 0 3px var(--primary);
+}
+
+.neck-joystick-crosshair-v,
+.neck-joystick-crosshair-h {
+    position: absolute;
+    background: var(--border);
+}
+
+.neck-joystick-crosshair-v {
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    transform: translateX(-50%);
+}
+
+.neck-joystick-crosshair-h {
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    transform: translateY(-50%);
+}
+
+.neck-joystick-handle {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 2px solid var(--foreground);
+    transform: translate(-50%, -50%);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.neck-joystick-handle.neck-joystick-snap {
+    transition: left 0.25s ease, top 0.25s ease;
+}
+
+.neck-joystick-labels {
+    position: relative;
+    width: 220px;
+    max-width: 100%;
+    height: 0;
+}
+
+.neck-joystick-labels span {
+    position: absolute;
+    font-size: 11px;
+    color: var(--sidebar-muted);
+}
+
+.neck-joystick-label-top {
+    top: -234px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.neck-joystick-label-bottom {
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.neck-joystick-label-left {
+    top: -118px;
+    left: 4px;
+}
+
+.neck-joystick-label-right {
+    top: -118px;
+    right: 4px;
+}
+
+.neck-readout {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--foreground);
+    margin-bottom: 20px;
+}
+
+.neck-readout-value {
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.neck-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+
+.neck-reset-btn {
+    flex: 0 0 auto;
+    min-width: 160px;
+    padding: 16px;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    background: var(--card-secondary);
+    color: var(--foreground);
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+    transition:
+        background-color 0.25s ease,
+        color 0.25s ease,
+        transform 0.15s ease,
+        opacity 0.2s ease;
+}
+
+.neck-reset-btn:hover {
+    opacity: 0.85;
+}
+
+.neck-reset-btn:active {
+    transform: scale(0.97);
+}
+
+.neck-btn-success {
+    background: #16a34a !important;
+    color: #fff !important;
+    border-color: #16a34a !important;
+    pointer-events: none;
+}
+
+.neck-btn-success .neck-btn-label::before {
+    content: "✓ ";
+    font-weight: 700;
+}
+
+.neck-status {
+    margin-top: 14px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--sidebar-muted);
+    font-variant-numeric: tabular-nums;
+    min-height: 18px;
+    transition: color 0.25s ease;
+}
+
+.neck-status.neck-status-flash {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+@keyframes neck-value-pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.25);
+        text-shadow: 0 0 12px var(--primary);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.neck-readout-value.neck-value-pulse {
+    display: inline-block;
+    animation: neck-value-pulse 0.5s ease-out;
+}

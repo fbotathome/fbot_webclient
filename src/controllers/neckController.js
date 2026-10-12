@@ -13,8 +13,12 @@ export function setNeckPosition(pan, tilt) {
   const clampedPan = clamp(pan, NECK_LEFT_LIMIT, NECK_RIGHT_LIMIT);
   const clampedTilt = clamp(tilt, NECK_DOWN_LIMIT, NECK_UP_LIMIT);
   publishUpdateNeck([clampedPan, clampedTilt]);
+  console.log(`[Neck] Position set to pan=${clampedPan}, tilt=${clampedTilt}`);
 }
 
 export function resetNeck() {
   publishUpdateNeck(NECK_DEFAULT);
+  console.log(
+    `[Neck] Position reset to pan=${NECK_DEFAULT[0]}, tilt=${NECK_DEFAULT[1]}`,
+  );
 }

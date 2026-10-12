@@ -11,6 +11,7 @@
         <link rel="stylesheet" href="css/manipulator.css" />
         <link rel="stylesheet" href="css/vision.css" />
         <link rel="stylesheet" href="css/emotions.css" />
+        <link rel="stylesheet" href="css/neck.css" />
         <title>Web Client</title>
         <link rel="icon" type="image/svg+xml" href="assets/logo/Logotipo.svg" />
         <script type="importmap">
@@ -476,8 +477,73 @@
                             </button>
                         </div>
                         <button class="emotions-apply-btn">
-                            Apply Emotion
+                            <span class="emotions-btn-label">Apply Emotion</span>
                         </button>
+                        <p
+                            class="emotions-status"
+                            id="emotions-status"
+                            aria-live="polite"
+                        >
+                            No emotion applied yet
+                        </p>
+                    </section>
+
+                    <section class="neck-control-card">
+                        <h2 class="neck-section-title">Neck Control</h2>
+                        <div class="neck-joystick-wrap">
+                            <div
+                                class="neck-joystick-pad"
+                                id="neck-joystick-pad"
+                                tabindex="0"
+                                role="slider"
+                                aria-label="Neck pan and tilt joystick"
+                            >
+                                <div class="neck-joystick-crosshair-v"></div>
+                                <div class="neck-joystick-crosshair-h"></div>
+                                <div
+                                    class="neck-joystick-handle"
+                                    id="neck-joystick-handle"
+                                ></div>
+                            </div>
+                            <div class="neck-joystick-labels">
+                                <span class="neck-joystick-label-top">Up</span>
+                                <span class="neck-joystick-label-bottom"
+                                    >Down</span
+                                >
+                                <span class="neck-joystick-label-left"
+                                    >Left</span
+                                >
+                                <span class="neck-joystick-label-right"
+                                    >Right</span
+                                >
+                            </div>
+                        </div>
+                        <div class="neck-readout">
+                            <span
+                                >Pan
+                                <b
+                                    class="neck-readout-value"
+                                    id="neck-pan-value"
+                                    >180</b
+                                ></span
+                            >
+                            <span
+                                >Tilt
+                                <b
+                                    class="neck-readout-value"
+                                    id="neck-tilt-value"
+                                    >180</b
+                                ></span
+                            >
+                        </div>
+                        <div class="neck-actions">
+                            <button class="neck-reset-btn">
+                                <span class="neck-btn-label">Center</span>
+                            </button>
+                        </div>
+                        <p class="neck-status" id="neck-status" aria-live="polite">
+                            No position sent yet
+                        </p>
                     </section>
                 </section>
 
