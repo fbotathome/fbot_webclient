@@ -1,7 +1,6 @@
 #!/bin/bash
 
 ROSBRIDGE_PORT=${ROSBRIDGE_PORT:-9090}
-LAUNCH_CAMERA=${LAUNCH_CAMERA:-1}
 HOST="0.0.0.0"
 HTTP_PORT=8080
 # Power control of this machine (Dashboard); POWER_MACHINE=none skips it.
@@ -59,20 +58,7 @@ cleanup() {
 }
 trap cleanup INT TERM EXIT
 
-# Orbbec Femto Bolt — publishes /camera/color/image_raw. Set LAUNCH_CAMERA=0
-# when another bringup already owns the device.
-if [ "$LAUNCH_CAMERA" != "0" ]; then
-  # A leftover driver keeps the /camera/camera_container name, so the new
-  # launch would load its node into that dead process instead of a fresh one.
-  pkill -f "femto_bolt.launch.py" 2>/dev/null || true
-  pkill -f "__node:=camera_container" 2>/dev/null || true
-  sleep 1
-  # Colour only: turning on the depth/IR emitter browns out the USB-C hub,
-  # which drops the camera (and the hub's ethernet) off the bus.
-  ros2 launch orbbec_camera femto_bolt.launch.py enable_depth:=false enable_ir:=false &
-  CAMERA_PID=$!
-fi
-
+# Orbbec Femto Bolt — publishes /camera/color/image_raw (LAUNCH_CAMERA=1, see above).
 if [ "$LAUNCH_CAMERA" != "0" ]; then
   # A leftover driver keeps the /camera/camera_container name, so the new
   # launch would load its node into that dead process instead of a fresh one.
@@ -114,15 +100,10 @@ if [ "$POWER_MACHINE" != "none" ]; then
   POWER_PID=$!
 fi
 
+python3 "$PROJECT_DIR/ros_nodes/labelerNode.py" --ros-args -p camera_topic:="$LABELER_CAMERA_TOPIC" &
+LABELER_PID=$!
+
 python3 "$SCRIPT_DIR/serve.py" --port "$HTTP_PORT" --bind "$HOST" --directory "$PROJECT_DIR" &
-# LAUNCH_CAMERA=1 starts the Femto Bolt here (/camera/...), for the Labeler on a
-# machine without the robot's bringup; on the robot the bringup owns the camera.
-LAUNCH_CAMERA=${LAUNCH_CAMERA:-0}
-if [ "$LAUNCH_CAMERA" != "0" ]; then
-  LABELER_CAMERA_TOPIC=${LABELER_CAMERA_TOPIC:-/camera/color/image_raw}
-else
-  LABELER_CAMERA_TOPIC=${LABELER_CAMERA_TOPIC:-/femtobolt/color/image_raw}
-fi
 HTTP_PID=$!
 
 wait
