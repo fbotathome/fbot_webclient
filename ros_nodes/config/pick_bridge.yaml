@@ -6,6 +6,9 @@ target_frame: world
 
 action_name: /fbot_manipulator/manipulation_task
 
+# The detections come from BORIS's own YOLO (fbot_recognition yolov8_recognition, the one the
+# tasks use), started by Task Runner's "YOLOv8 objects" or the bringup: use_realsense:=true
+# runs the wrist detector, false the head (Femto Bolt) one.
 # First = default. detections_topic: fbot_vision_msgs/Detection3DArray;
 # image_topic: the image that detector runs on, so the boxes line up.
 # depth_topic + camera_info_topic (optional): enable "Place here" (click a spot on the image).
