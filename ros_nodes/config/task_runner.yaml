@@ -52,7 +52,7 @@ tasks:
       - yolov8: {use_remote: "false", use_realsense: "false", use_femtobolt: "false"}
       - tts: {use_remote: "false"}
       - riva_stt: {use_remote: "false"}
-      - vlm: {vlm_api_type: "ollama", vlm_api_model: "llama3.2-vision", vlm_api_host: "http://192.168.4.102:11434"}
+      - vlm: {vlm_api_model: "ollama/llama3.2-vision", vlm_api_host: "http://192.168.4.102:11434"}
       - rviz: {argv: ["-d", "{share:fbot_behavior}/task/config/rviz/receptionist.rviz"]}
     steps:
       - {name: Save poses, executable: save_poses_receptionist}
@@ -109,7 +109,7 @@ tasks:
     name: Pick and Place
     components:
       - description: {arm_z_position: "0.42"}
-      - navigation_map: {use_navigation_rviz: "false", map_file: "arena_1.yaml"}
+      - navigation_map: {use_rviz: "false", map_file: "arena_1.yaml"}
       - world: {config_file_name: "pick_place_poses"}
       - neck
       - yolov8: {use_remote: "true", use_realsense: "false", use_femtobolt: "false"}
@@ -181,7 +181,7 @@ tasks:
       - tts: {use_remote: "false"}
       - yolo_tracker: {use_remote: "false", use_realsense: "false", use_femtobolt: "false"}
       - riva_stt: {use_remote: "false"}
-      - vlm: {vlm_api_type: "ollama", vlm_api_model: "llama3.2-vision", vlm_api_host: "http://192.168.4.102:11434"}
+      - vlm: {vlm_api_model: "ollama/llama3.2-vision", vlm_api_host: "http://192.168.4.102:11434"}
       - rviz: {argv: ["-d", "{share:fbot_behavior}/task/config/rviz/receptionist.rviz"]}
     steps:
       - {name: Run, executable: egpsr}
@@ -234,7 +234,7 @@ tasks:
   inspection:
     name: Inspection
     components:
-      - navigation_map: {use_navigation_rviz: "false", map_file: "arena_1.yaml"}
+      - navigation_map: {use_rviz: "false", map_file: "arena_1.yaml"}
       - world: {config_file_name: "pose_inspection"}
       - neck
       - tts: {use_remote: "false"}
@@ -278,7 +278,7 @@ tasks:
     name: HRI
     components:
       - description: {arm_z_position: "0.23"}
-      - navigation_map: {use_navigation_rviz: "false", map_file: "arena_1.yaml"}
+      - navigation_map: {use_rviz: "false", map_file: "arena_1.yaml"}
       - world: {config_file_name: "hri_arena1"}
       - camera: {use_realsense: "false", use_femtobolt: "true", use_remote: "true"}
       - neck
@@ -297,7 +297,7 @@ tasks:
     name: Laundry
     components:
       - description: {arm_z_position: "0.23"}
-      - navigation_map: {map_file: "arena_3.yaml", use_navigation_rviz: "true"}
+      - navigation_map: {map_file: "arena_3.yaml", use_rviz: "true"}
       - world: {config_file_name: "pose_gpsr_arena3"}
       - camera: {use_realsense: "false", use_femtobolt: "true"}
       - neck
@@ -311,7 +311,7 @@ tasks:
     name: Quiz
     components:
       - neck
-      - vlm_direct: {vlm_api_model: "gemma3:4b", vlm_api_host: "http://192.168.4.102:11434", vlm_api_type: "ollama"}
+      - vlm_direct: {vlm_api_model: "ollama/gemma3:4b", vlm_api_host: "http://192.168.4.102:11434"}
       - tts: {use_remote: "false"}
       - riva_stt: {use_remote: "false"}
       - hotword
@@ -329,7 +329,7 @@ tasks:
       - neck
       - tts: {use_remote: "false"}
       - hotword
-      - vlm_direct: {vlm_api_type: "google-genai", vlm_api_model: "gemini-2.5-flash", vlm_api_host: "http://192.168.4.102:11434"}
+      - vlm_direct: {vlm_api_model: "gemini/gemini-2.5-flash", vlm_api_host: "http://192.168.4.102:11434"}
       - moondream: {use_remote: "true", use_realsense: "false", use_femtobolt: "false"}
       - rviz: {argv: ["-d", "{share:fbot_behavior}/task/config/rviz/receptionist.rviz"]}
     steps:
