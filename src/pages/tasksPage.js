@@ -9,6 +9,7 @@ import {
   describeComponent,
   runStep,
   stopRun,
+  sendRunInput,
   startCustomLaunch,
   forgetComponent,
   fetchLaunchFiles,
@@ -347,6 +348,10 @@ const _handlers = {
   onStopRun() {
     _setPending("run", "stop");
     stopRun();
+  },
+  onRunInput(text) {
+    _setTab("run");
+    sendRunInput(text);
   },
   onTab(tab) {
     _setTab(tab);

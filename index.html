@@ -1202,6 +1202,18 @@
                                     </div>
                                     <p class="task-hint" id="task-run-hint"></p>
                                     <ul class="task-steps" id="task-steps"></ul>
+                                    <form class="task-stdin" id="task-stdin" hidden>
+                                        <input
+                                            id="task-stdin-text"
+                                            class="task-input"
+                                            type="text"
+                                            placeholder="Answer the step (empty = Enter)…"
+                                            autocomplete="off"
+                                            maxlength="500"
+                                            aria-label="Input for the running step"
+                                        />
+                                        <button id="task-stdin-send" class="dash-btn" type="submit">Send</button>
+                                    </form>
                                 </div>
 
                                 <p class="task-message" id="task-message" aria-live="polite"></p>

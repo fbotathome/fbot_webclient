@@ -113,6 +113,11 @@ export function stopRun() {
   publishTaskCommand({ action: "stop_run" });
 }
 
+/** A line to the running step's stdin; "" is Enter (setups wait for it at each pose). */
+export function sendRunInput(text) {
+  publishTaskCommand({ action: "input", text });
+}
+
 /** Any launch file; the runner keeps it as the component "<package>/<launch>". */
 export function startCustomLaunch(pkg, launch, args) {
   publishTaskCommand({ action: "start_custom", package: pkg, launch, args });

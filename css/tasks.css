@@ -385,6 +385,12 @@
 .task-add .dash-btn { padding: 6px 14px; }
 .task-add .dash-btn:disabled { opacity: 0.45; cursor: default; }
 
+/* Input for the running step (a setup waiting for Enter) */
+.task-stdin { display: flex; gap: 8px; margin-top: 8px; }
+.task-stdin .task-input { flex: 1; min-width: 0; padding: 6px 10px; font-size: 13px; font-family: monospace; }
+.task-stdin .dash-btn { padding: 6px 14px; }
+.task-stdin .dash-btn:disabled { opacity: 0.45; cursor: default; }
+
 .task-line-tag {
   display: inline-block;
   min-width: 110px;

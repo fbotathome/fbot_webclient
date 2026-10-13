@@ -49,7 +49,7 @@ const STATE_TEXT = { starting: "Starting", running: "Running", stopping: "Stoppi
  * handlers: onSelect(id), onFilter(text), onStartAll(), onStopAll(), onStart(component),
  * onStop(component), onRestart(component), onToggleEditor(component), onArg(component, name, value),
  * onResetArg(component, name), onResetArgs(component), onAddArg(component, name), onStartOther(component),
- * onForget(component), onRun(executable), onStopRun(), onTab(source), onOutputComponent(component),
+ * onForget(component), onRun(executable), onStopRun(), onRunInput(text), onTab(source), onOutputComponent(component),
  * onOutputFilter(text), onClear(), onMode(mode), onCustomPackage(pkg), onCustomStart(pkg, file, argsText),
  * onNeedLaunchFiles().
  */
@@ -62,7 +62,7 @@ export function initTasksView(handlers) {
     "task-output-clear", "task-output", "task-output-jump", "task-output-note", "task-mode", "task-layout",
     "task-list-col", "task-comp-num", "task-comp-title", "task-custom", "task-custom-pkg", "task-pkg-list",
     "task-custom-file", "task-file-list", "task-custom-args", "task-custom-start", "task-custom-hint", "task-add",
-    "task-steps-block",
+    "task-steps-block", "task-stdin", "task-stdin-text", "task-stdin-send",
   ]) {
     _els[id] = document.getElementById(id);
   }
@@ -131,6 +131,14 @@ export function initTasksView(handlers) {
       if (!button) return;
       if (button.dataset.mode === "stop") handlers.onStopRun();
       else handlers.onRun(button.dataset.step);
+    }],
+    [_els["task-stdin"], "submit", (e) => {
+      e.preventDefault();
+      if (_els["task-stdin-send"].disabled) return; // Enter in the field while waiting
+      // Once per prompt: a second Enter would answer the next one (save the next pose).
+      _els["task-stdin-send"].disabled = true;
+      handlers.onRunInput(_els["task-stdin-text"].value);
+      _els["task-stdin-text"].value = "";
     }],
     [_els["task-tabs"], "click", (e) => {
       const tab = e.target.closest("button[data-source]");
@@ -454,6 +462,11 @@ function _renderSteps(task, components, online, running, last, pending) {
   if (key === _stepsKey) return;
   _stepsKey = key;
 
+  _els["task-stdin"].hidden = !(online && run && run.task === task.id && run.state !== "stopping");
+  // The runner refuses input until the step prints again (a new prompt).
+  _els["task-stdin-send"].disabled = !run?.asked;
+  _els["task-stdin-send"].title = run?.asked ? "" : "Waiting for the step to ask";
+
   const upIds = new Set(Object.keys(running).filter((k) => k.startsWith("c:")).map((k) => k.slice(2)));
   const down = task.components.filter((c) => components[c.id]?.autostart !== false && !upIds.has(c.id)).length;
   _els["task-run-hint"].textContent = run && run.task !== task.id
@@ -587,6 +600,7 @@ export function renderTasks({ mode, online, status, selectedId, filter, pending,
     _els["task-extra"].hidden = true;
     _els["task-run-hint"].textContent = "";
     _els["task-steps"].replaceChildren();
+    _els["task-stdin"].hidden = true;
     _rowsKey = _stepsKey = "";
   }
 

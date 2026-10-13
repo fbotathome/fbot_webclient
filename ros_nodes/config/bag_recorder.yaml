@@ -36,5 +36,6 @@ play_blocked_topics:
   - /fbot_face/emotion
   - /fbot_webclient/pick/request
   - /fbot_webclient/pick/cancel
+  - /fbot_webclient/tasks/command
   - /rosout
   - /parameter_events

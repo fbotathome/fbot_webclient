@@ -11,6 +11,8 @@ come from the config, generated from fbot_behavior's <task>.launch.py files.
         start_all        {"task", "args"?: {component: {name: value}}}  one every start_gap_s
         stop_all         {}  every component, and cancels a start_all
         run              {"task", "executable"};  stop_run {}
+        input            {"text"}  a line to the running step's stdin (e.g. "" for "press Enter"),
+                         once per prompt: refused until the step prints something again
         describe         {"component"}  reads the arguments its launch file declares
         start_custom     {"package", "launch", "args"?}  any launch file, kept as a component
                          ("<package>/<launch>") until forget {"component"}
@@ -25,6 +27,12 @@ come from the config, generated from fbot_behavior's <task>.launch.py files.
 
 Processes run in their own process group and are stopped with SIGINT to the
 whole group, like Ctrl+C in a terminal, then SIGKILL if they don't exit in time.
+When a process ends by itself, what is left of its group (e.g. an rviz2 a crashed
+launch didn't stop) is stopped the same way, and the process counts as running
+until its whole group is gone. A launch is meant to run until stopped, so one
+that ends by itself is an error, even with exit code 0 (which `ros2 launch`
+returns when its nodes died). Steps get a pseudo-terminal as stdin: setups wait
+for Enter with input(), and some read keys with termios.
 Nothing here blocks the node: processes are watched from a timer and their
 output is read by one thread each. The workspace must be sourced before
 scripts/start.sh, or the packages aren't found.
@@ -35,9 +43,12 @@ import argparse
 import itertools
 import json
 import os
+import pty
 import re
+import selectors
 import signal
 import subprocess
+import termios
 import threading
 import time
 from collections import deque
@@ -67,6 +78,8 @@ HISTORY_LINES = 600  # per source
 MAX_LINES_PER_BATCH = 400
 MAX_LINE_CHARS = 2000
 MAX_ARG_CHARS = 500
+PARTIAL_LINE_S = 0.5  # a step's output without a newline (an input() prompt) is shown after this
+MAX_PENDING_BYTES = 65536
 ARG_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 PACKAGE_NAME = re.compile(r"^[A-Za-z0-9_]+$")
 LAUNCH_FILE = re.compile(r"^[A-Za-z0-9_.-]+\.(py|xml|yaml)$")
@@ -81,11 +94,19 @@ ENV = {
 }
 
 
-def _signal(process, sig):
+def _killpg(pgid, sig):
     try:
-        os.killpg(process.pid, sig)
+        os.killpg(pgid, sig)
     except ProcessLookupError:
         pass  # already gone; the timer reports it
+
+
+def _group_alive(pgid):
+    try:
+        os.killpg(pgid, 0)
+        return True
+    except (ProcessLookupError, PermissionError):
+        return False
 
 
 def _describe_exit(code):
@@ -235,6 +256,8 @@ class TaskRunner(Node):
             cmd = json.loads(msg.data)
         except json.JSONDecodeError:
             return
+        if not isinstance(cmd, dict):
+            return
         action = cmd.get("action")
         try:
             if action in ("start", "restart"):
@@ -250,6 +273,8 @@ class TaskRunner(Node):
                 self._run(cmd.get("task"), cmd.get("executable"))
             elif action == "stop_run":
                 self._stop("run")
+            elif action == "input":
+                self._send_input(cmd.get("text"))
             elif action == "describe":
                 self._describe(cmd.get("component"))
             elif action == "start_custom":
@@ -263,6 +288,8 @@ class TaskRunner(Node):
                 self._say("Checked again what is installed")
         except ValueError as e:
             self._say(str(e), error=True)
+        except (TypeError, AttributeError) as e:  # a field of the wrong type; never take the node down
+            self._say(f"Bad '{action}' command: {e}", error=True)
         self._publish_status()
 
     def _task_entry(self, task_id, cid):
@@ -340,22 +367,61 @@ class TaskRunner(Node):
         self._spawn("run", "run", ["ros2", "run", self._steps_package, executable], label=executable,
                     task=task_id, executable=executable)
 
+    def _send_input(self, text):
+        """A line to the step's stdin: setup steps wait for Enter (input()) between poses."""
+        proc = self._procs.get("run")
+        if not proc or proc["state"] == "stopping":
+            raise ValueError("No task step is running")
+        text = "" if text is None else str(text)
+        if "\n" in text or len(text) > MAX_ARG_CHARS:
+            raise ValueError("Bad input line")
+        if not proc["asked"]:
+            # A second Enter would answer the next prompt (save the next pose) unseen.
+            raise ValueError(f"{proc['label']} hasn't printed anything since the last input")
+        data = text.encode() + b"\n"
+        try:
+            # Non-blocking: a step that doesn't read can't block the node.
+            sent = os.write(proc["stdin"], data)
+        except OSError:  # BlockingIOError (buffer full), EIO (step gone)
+            sent = 0
+        if sent != len(data):
+            raise ValueError(f"{proc['label']} isn't reading its input")
+        proc["asked"] = False
+        self._line("run", f"[input] {text}" if text else "[input] (Enter)")
+        self._say(f"Sent to {proc['label']}")
+
     def _spawn(self, key, kind, cmd, label, **info):
         self._line(key, f"$ {' '.join(cmd)}")
+        stdin, child_stdin = None, subprocess.DEVNULL
+        if kind == "run":
+            # Only the steps read input. A pseudo-terminal, not a pipe: a setup waits for
+            # Enter with input(), and ShelfSaverMachine reads keys with termios.
+            stdin, child_stdin = pty.openpty()
+            attrs = termios.tcgetattr(child_stdin)
+            attrs[3] &= ~termios.ECHO  # nobody reads the echo back
+            termios.tcsetattr(child_stdin, termios.TCSANOW, attrs)
+            os.set_blocking(stdin, False)  # see _send_input
         try:
             process = subprocess.Popen(
-                cmd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                cmd, stdin=child_stdin, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 env={**os.environ, **ENV}, start_new_session=True,
                 # Started with & from start.sh, this node may have SIGINT ignored; the
                 # children must not inherit that, SIGINT is how they are stopped.
                 preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_DFL),
             )
         except OSError as e:
+            if stdin is not None:
+                os.close(stdin)
             raise ValueError(f"Couldn't start {label}: {e}") from e
-        threading.Thread(target=self._read_output, args=(key, process), daemon=True).start()
+        finally:
+            if stdin is not None:
+                os.close(child_stdin)
+        # Before the reader starts: it marks the record when the step asks for input.
         self._procs[key] = {"kind": kind, "label": label, "process": process, "state": "starting",
                             "started_at": time.time(), "deadline": time.monotonic() + START_CHECK_S,
-                            "stop_requested": False, "restart": None, **info}
+                            "stop_requested": False, "restart": None, "stdin": stdin, "asked": False,
+                            "leader_exit": None, **info}
+        threading.Thread(target=self._read_output, args=(key, process), daemon=True).start()
         self._say(f"Starting {label}")
         self.get_logger().info(f"Started {' '.join(cmd)}")
 
@@ -367,7 +433,7 @@ class TaskRunner(Node):
         proc["stop_requested"] = True
         proc["deadline"] = time.monotonic() + STOP_TIMEOUT_S[proc["kind"]]
         self._say(f"Stopping {proc['label']}")
-        _signal(proc["process"], signal.SIGINT)
+        _killpg(proc["process"].pid, signal.SIGINT)
 
     def _start_custom(self, package, launch, args):
         """Any launch file: becomes a component, so it is stopped, restarted and edited like the others."""
@@ -475,6 +541,18 @@ class TaskRunner(Node):
         proc = self._procs[key]
         code = proc["process"].poll()
         now = time.monotonic()
+        if code is not None and proc["leader_exit"] is None and _group_alive(proc["process"].pid):
+            # The leader is gone but not its group (e.g. the rviz2 of a crashed launch):
+            # stop the rest, and keep the record (Start, Stop all, status) until it is gone.
+            proc["leader_exit"] = {"code": code, "state": proc["state"]}
+            self._line(key, f"[task runner] stopping what {proc['label']} left running")
+            if proc["state"] != "stopping":
+                proc["state"] = "stopping"
+                proc["deadline"] = now + STOP_TIMEOUT_S[proc["kind"]]
+            _killpg(proc["process"].pid, signal.SIGINT)
+            return True
+        if code is not None and proc["leader_exit"] is not None and _group_alive(proc["process"].pid):
+            code = None  # still running, as far as the page is concerned
         if code is None:
             if proc["state"] == "starting" and now >= proc["deadline"]:
                 proc["state"] = "running"
@@ -482,17 +560,28 @@ class TaskRunner(Node):
             if proc["state"] == "stopping" and now >= proc["deadline"]:
                 self._line(key, f"[task runner] {proc['label']} didn't stop in "
                                 f"{STOP_TIMEOUT_S[proc['kind']]:g} s, killing it")
-                _signal(proc["process"], signal.SIGKILL)
+                _killpg(proc["process"].pid, signal.SIGKILL)
                 proc["deadline"] = now + STOP_TIMEOUT_S[proc["kind"]]  # don't kill it again every tick
             return False
 
+        state = proc["state"]
+        if proc["leader_exit"]:  # how the leader ended, not the cleanup after it
+            code, state = proc["leader_exit"]["code"], proc["leader_exit"]["state"]
+        is_launch = proc["kind"] == "component" and self._components.get(proc["component"], {}).get("launch")
         if proc["stop_requested"]:
             outcome, error = "stopped", False
-        elif proc["state"] == "starting" and code != 0:
+        elif is_launch:
+            # Meant to run until stopped; `ros2 launch` exits 0 even when its nodes died.
+            detail = "exit code 0" if code == 0 else _describe_exit(code)
+            outcome = f"{'failed to start' if state == 'starting' else 'ended by itself'} ({detail})"
+            error = True
+        elif state == "starting" and code != 0:
             outcome, error = f"failed to start ({_describe_exit(code)})", True
         else:
-            outcome, error = _describe_exit(code), code != 0
+            outcome, error = _describe_exit(code), code != 0  # e.g. RViz closed by hand: finished
         self._line(key, f"[task runner] {proc['label']} {outcome}")
+        if proc["stdin"] is not None:
+            os.close(proc["stdin"])
         self._last[key] = {"task": proc.get("task"), "executable": proc.get("executable"), "outcome": outcome,
                            "error": error, "ended_at": time.time()}
         del self._procs[key]
@@ -509,11 +598,38 @@ class TaskRunner(Node):
     # Output
 
     def _read_output(self, key, process):
-        for raw in iter(process.stdout.readline, b""):
-            text = ANSI.sub("", raw.decode("utf-8", "replace")).rstrip()
-            if text:
-                self._line(key, text)
+        """Lines as they come; for a step, also a partial line (a prompt waiting for input) after PARTIAL_LINE_S."""
+        fd = process.stdout.fileno()
+        pending = b""
+        selector = selectors.DefaultSelector()  # not select.select: it fails on fds >= 1024
+        selector.register(fd, selectors.EVENT_READ)
+        while True:
+            if not selector.select(PARTIAL_LINE_S if key == "run" else None):
+                if pending:
+                    self._raw_line(key, pending)
+                    pending = b""
+                continue
+            chunk = os.read(fd, 65536)
+            if not chunk:
+                break
+            *lines, pending = (pending + chunk).split(b"\n")
+            for raw in lines:
+                self._raw_line(key, raw)
+            if len(pending) > MAX_PENDING_BYTES:
+                self._raw_line(key, pending)
+                pending = b""
+        if pending:
+            self._raw_line(key, pending)
+        selector.close()
         process.stdout.close()
+
+    def _raw_line(self, key, raw):
+        text = ANSI.sub("", raw.decode("utf-8", "replace")).rstrip()
+        if text:
+            self._line(key, text)
+            proc = self._procs.get(key)
+            if proc:
+                proc["asked"] = True  # it printed something: a prompt may be waiting
 
     def _line(self, source, text):
         if len(text) > MAX_LINE_CHARS:
@@ -567,7 +683,8 @@ class TaskRunner(Node):
         running = {
             key: {"task": proc.get("task"), "state": proc["state"],
                   "uptime_s": now - proc["started_at"], "args": proc.get("args"),
-                  "executable": proc.get("executable"), "restarting": bool(proc["restart"])}
+                  "executable": proc.get("executable"), "restarting": bool(proc["restart"]),
+                  "asked": proc["asked"]}
             for key, proc in self._procs.items()
         }
         queue = self._queue and {"task": self._queue["task"], "pending": [c for c, _ in self._queue["items"]]}
@@ -585,14 +702,20 @@ class TaskRunner(Node):
         """Stops everything before exiting (blocking, unlike the stop commands)."""
         self._queue = None
         procs = list(self._procs.values())
-        for proc in procs:
-            _signal(proc["process"], signal.SIGINT)
+        groups = {proc["process"].pid for proc in procs}
+        for pgid in groups:
+            _killpg(pgid, signal.SIGINT)
         deadline = time.monotonic() + max(STOP_TIMEOUT_S.values())
         for proc in procs:
             try:
                 proc["process"].wait(timeout=max(0.1, deadline - time.monotonic()))
             except subprocess.TimeoutExpired:
-                _signal(proc["process"], signal.SIGKILL)
+                pass
+        # Then the whole groups: what a leader left behind goes too.
+        while any(_group_alive(g) for g in groups) and time.monotonic() < deadline:
+            time.sleep(0.2)
+        for pgid in groups:
+            _killpg(pgid, signal.SIGKILL)
         self._procs.clear()
 
 
