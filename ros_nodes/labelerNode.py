@@ -59,12 +59,6 @@ from sensor_msgs.msg import Image
 from std_msgs.msg import String
 
 try:
-    from cv_bridge import CvBridge
-    _HAS_CV_BRIDGE = True
-except ImportError:
-    _HAS_CV_BRIDGE = False
-
-try:
     import torch
     from PIL import Image as PILImage
     from transformers import CLIPModel, CLIPProcessor
@@ -177,6 +171,7 @@ class FewShotCLIPClassifier(Classifier):
         inputs = self.processor(images=pil_images, return_tensors="pt").to(self.device)
         with torch.no_grad():
             features = self.model.get_image_features(**inputs)
+        features = getattr(features, "pooler_output", features)  # transformers 5 devolve o output; o 4.x, o tensor
         return torch.nn.functional.normalize(features, dim=-1)
 
     def _logits(self, features: "torch.Tensor", weight: "torch.Tensor", bias: "torch.Tensor") -> "torch.Tensor":
@@ -342,13 +337,6 @@ class LabelerNode(Node):
         self._captured_frame = None   # PIL Image — travado no classify, liberado no stage/discard
         self._gallery        = Gallery(self._datasets_path)
 
-        # cv_bridge
-        if _HAS_CV_BRIDGE:
-            self._bridge = CvBridge()
-        else:
-            self._bridge = None
-            self.get_logger().warn("cv_bridge não encontrado — usando conversão manual.")
-
         # Classificador
         self.get_logger().info(f"Carregando CLIP '{clip_model}'...")
         try:
@@ -385,15 +373,14 @@ class LabelerNode(Node):
 
     def _on_image(self, msg: Image):
         try:
-            if self._bridge:
-                cv_img  = self._bridge.imgmsg_to_cv2(msg, desired_encoding="rgb8")
-                pil_img = PILImage.fromarray(cv_img)
-            else:
-                channels = len(msg.data) // (msg.height * msg.width)
-                arr = np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.width, channels)
-                if "bgr" in msg.encoding.lower():
-                    arr = arr[:, :, ::-1].copy()
-                pil_img = PILImage.fromarray(arr.astype(np.uint8))
+            # Sem cv_bridge: o do ROS Humble é compilado com NumPy 1.x e derruba o processo (segfault) com NumPy 2.
+            # shortcut: só 8-bit RGB/BGR(A); mono ou 16-bit logam erro a cada frame — ampliar se o labeler usar outra câmera.
+            channels = len(msg.data) // (msg.height * msg.width)
+            arr = np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.step)[:, :msg.width * channels]
+            arr = arr.reshape(msg.height, msg.width, channels)[:, :, :3]
+            if "bgr" in msg.encoding.lower():
+                arr = arr[:, :, ::-1]
+            pil_img = PILImage.fromarray(np.ascontiguousarray(arr))
 
             with self._lock:
                 self._latest_frame = pil_img
