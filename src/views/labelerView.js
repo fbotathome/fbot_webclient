@@ -7,11 +7,10 @@ const _els = {
     flashOverlay: null,
     analyzingOverlay: null,
     shutterBtn: null,
+    boxesSvg: null,
     predictionIdle: null,
-    predictionResult: null,
-    predictionLabel: null,
-    confidenceFill: null,
-    confidenceValue: null,
+    objectsList: null,
+    classList: null,
     actionRow: null,
     confirmBtn: null,
     discardBtn: null,
@@ -31,12 +30,22 @@ const _els = {
 };
 
 const LONG_PRESS_MS = 450;
+// One color per object, so each box on the image matches its row in the list.
+const OBJECT_COLORS = ["#fe5000", "#29b6f6", "#66bb6a", "#ffca28", "#ab47bc", "#ef5350", "#26a69a", "#ec407a"];
+// A drag shorter than this (fraction of the image side) is a tap, not a box.
+const MIN_BOX_FRACTION = 0.01;
+const SVG_NS = "http://www.w3.org/2000/svg";
 
 let _isInitialized = false;
 let _currentSplit = "train";
 let _currentTopic = null;
-// Gallery items, newest first: { id, label, split, saved, time, thumb }
+// Gallery items, newest first: { id, labels, split, saved, time, thumb }
 const _captures = [];
+// Objects of the capture under review: { label, confidence (null when drawn), box: [x0, y0, x1, y1] (0-1) }
+let _objects = [];
+let _frameSize = { width: 1, height: 1 };
+let _drawStart = null; // { x, y } (0-1) while a box is being drawn
+let _draft = null;     // the box being drawn
 const _selected = new Set();
 let _isSelecting = false;
 let _longPressTimer = null;
@@ -69,12 +78,11 @@ export function initView() {
     _els.feedPlaceholder  = document.getElementById("labeler-feed-placeholder");
     _els.flashOverlay     = document.getElementById("labeler-flash");
     _els.analyzingOverlay = document.getElementById("labeler-analyzing-overlay");
+    _els.boxesSvg         = document.getElementById("labeler-boxes");
     _els.shutterBtn       = document.getElementById("labeler-shutter-btn");
     _els.predictionIdle   = document.getElementById("labeler-prediction-idle");
-    _els.predictionResult = document.getElementById("labeler-prediction-result");
-    _els.predictionLabel  = document.getElementById("labeler-prediction-label");
-    _els.confidenceFill   = document.getElementById("labeler-confidence-fill");
-    _els.confidenceValue  = document.getElementById("labeler-confidence-value");
+    _els.objectsList      = document.getElementById("labeler-objects");
+    _els.classList        = document.getElementById("labeler-class-list");
     _els.actionRow        = document.getElementById("labeler-action-row");
     _els.confirmBtn       = document.getElementById("labeler-confirm-btn");
     _els.discardBtn       = document.getElementById("labeler-discard-btn");
@@ -107,6 +115,10 @@ export function initView() {
     _els.galleryGrid.addEventListener("pointerleave", _cancelLongPress);
     _els.galleryGrid.addEventListener("pointercancel", _cancelLongPress);
     _els.galleryGrid.addEventListener("contextmenu", _onGridContextMenu);
+    _els.boxesSvg.addEventListener("pointerdown", _onBoxesPointerDown);
+    _els.boxesSvg.addEventListener("pointermove", _onBoxesPointerMove);
+    _els.boxesSvg.addEventListener("pointerup", _onBoxesPointerUp);
+    _els.boxesSvg.addEventListener("pointercancel", _onBoxesPointerCancel);
 
     _isInitialized = true;
     _renderGallery();
@@ -235,38 +247,167 @@ export function lockShutter(ms = 2000) {
 }
 
 /**
- * Displays the classification result.
- * @param {string} label
- * @param {number} confidence  0.0 – 1.0
+ * Shows the detected objects over the frozen frame, for review.
+ * @param {{ objects: { label: string, confidence: number, box: number[] }[], classes: string[],
+ *           width: number, height: number }} detection  boxes are [x0, y0, x1, y1] in 0-1
  */
-export function showPrediction(label, confidence) {
-    if (!_els.predictionLabel) return;
-
+export function showDetections({ objects, classes, width, height }) {
+    if (!_els.objectsList) return;
+    _objects = objects.map(({ label, confidence, box }) => ({ label, confidence, box }));
+    _frameSize = { width, height };
+    _els.classList.replaceChildren(...classes.map((c) => Object.assign(document.createElement("option"), { value: c })));
+    _els.boxesSvg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    _els.boxesSvg.style.display = "block";
     _els.predictionIdle.style.display = "none";
-    _els.predictionResult.style.display = "flex";
-    _els.predictionLabel.value = label;
-
-    // Animate confidence bar after a brief delay so the transition fires
-    requestAnimationFrame(() => {
-        _els.confidenceFill.style.width = `${(confidence * 100).toFixed(0)}%`;
-        _els.confidenceValue.textContent = `${(confidence * 100).toFixed(0)}%`;
-    });
-
+    _els.objectsList.style.display = "flex";
     _els.actionRow.style.display = "grid";
+    _renderObjects();
 }
 
 export function resetPrediction() {
     if (!_els.predictionIdle) return;
+    _objects = [];
+    _drawStart = null;
+    _draft = null;
     _els.predictionIdle.style.display = "";
-    _els.predictionResult.style.display = "none";
-    _els.predictionLabel.value = "";
-    _els.confidenceFill.style.width = "0%";
-    _els.confidenceValue.textContent = "";
+    _els.objectsList.style.display = "none";
+    _els.objectsList.replaceChildren();
+    _els.boxesSvg.style.display = "none";
+    _els.boxesSvg.replaceChildren();
     _els.actionRow.style.display = "none";
 }
 
-export function getPredictionLabel() {
-    return _els.predictionLabel ? _els.predictionLabel.value.trim() : "";
+/** The reviewed objects: [{ label, box }]. */
+export function getObjects() {
+    return _objects.map(({ label, box }) => ({ label: label.trim(), box }));
+}
+
+export function focusObject(index) {
+    _els.objectsList?.querySelectorAll(".labeler-object-label")[index]?.focus();
+}
+
+function _objectColor(index) {
+    return OBJECT_COLORS[index % OBJECT_COLORS.length];
+}
+
+function _renderObjects() {
+    const rows = _objects.map((obj, i) => {
+        const row = document.createElement("div");
+        row.className = "labeler-object";
+        row.style.setProperty("--object-color", _objectColor(i));
+
+        const swatch = document.createElement("span");
+        swatch.className = "labeler-object-swatch";
+        swatch.textContent = i + 1;
+
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "labeler-object-label";
+        input.value = obj.label;
+        input.placeholder = "class";
+        input.autocomplete = "off";
+        input.spellcheck = false;
+        input.setAttribute("list", "labeler-class-list");
+        input.addEventListener("input", () => {
+            obj.label = input.value;
+            _renderBoxes();
+        });
+
+        const confidence = document.createElement("span");
+        confidence.className = "labeler-object-conf";
+        confidence.textContent = obj.confidence == null ? "drawn" : `${Math.round(obj.confidence * 100)}%`;
+
+        const remove = document.createElement("button");
+        remove.className = "labeler-object-remove";
+        remove.setAttribute("aria-label", `Remove object ${i + 1}`);
+        remove.innerHTML = '<span class="icon icon--x" aria-hidden="true"></span>';
+        remove.addEventListener("click", () => {
+            _objects.splice(i, 1);
+            _renderObjects();
+        });
+
+        row.append(swatch, input, confidence, remove);
+        return row;
+    });
+
+    const hint = document.createElement("span");
+    hint.className = "labeler-objects-hint";
+    hint.textContent = _objects.length > 0
+        ? "Drag on the image to add a missed object"
+        : "No objects found \u2014 drag on the image to mark one";
+    _els.objectsList.replaceChildren(...rows, hint);
+    _renderBoxes();
+}
+
+function _renderBoxes() {
+    const shapes = _objects.map((obj, i) => _boxShape(obj.box, _objectColor(i), `${i + 1} ${obj.label}`));
+    if (_draft) shapes.push(_boxShape(_draft, "#ffffff", ""));
+    _els.boxesSvg.replaceChildren(...shapes);
+}
+
+function _boxShape([x0, y0, x1, y1], color, text) {
+    const { width, height } = _frameSize;
+    const group = document.createElementNS(SVG_NS, "g");
+    const rect = document.createElementNS(SVG_NS, "rect");
+    rect.setAttribute("x", x0 * width);
+    rect.setAttribute("y", y0 * height);
+    rect.setAttribute("width", (x1 - x0) * width);
+    rect.setAttribute("height", (y1 - y0) * height);
+    rect.setAttribute("stroke", color);
+    group.append(rect);
+
+    if (text) {
+        const fontSize = Math.round(width * 0.022);
+        const label = document.createElementNS(SVG_NS, "text");
+        label.setAttribute("x", x0 * width);
+        // Above the box, or inside it when the box touches the top of the image.
+        label.setAttribute("y", y0 * height > fontSize ? y0 * height - fontSize * 0.3 : y0 * height + fontSize);
+        label.setAttribute("font-size", fontSize);
+        label.setAttribute("fill", color);
+        label.textContent = text;
+        group.append(label);
+    }
+    return group;
+}
+
+/** Pointer position on the frame, in 0-1, clamped to the image. */
+function _framePoint(event) {
+    const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(_els.boxesSvg.getScreenCTM().inverse());
+    const clamp = (v) => Math.min(Math.max(v, 0), 1);
+    return { x: clamp(point.x / _frameSize.width), y: clamp(point.y / _frameSize.height) };
+}
+
+function _onBoxesPointerDown(event) {
+    _drawStart = _framePoint(event);
+    _draft = [_drawStart.x, _drawStart.y, _drawStart.x, _drawStart.y];
+    _els.boxesSvg.setPointerCapture(event.pointerId);
+}
+
+function _onBoxesPointerMove(event) {
+    if (!_drawStart) return;
+    const p = _framePoint(event);
+    _draft = [Math.min(_drawStart.x, p.x), Math.min(_drawStart.y, p.y), Math.max(_drawStart.x, p.x), Math.max(_drawStart.y, p.y)];
+    _renderBoxes();
+}
+
+function _onBoxesPointerUp() {
+    if (!_drawStart) return;
+    const box = _draft;
+    _drawStart = null;
+    _draft = null;
+    if (box[2] - box[0] < MIN_BOX_FRACTION || box[3] - box[1] < MIN_BOX_FRACTION) {
+        _renderBoxes();
+        return;
+    }
+    _objects.push({ label: "", confidence: null, box });
+    _renderObjects();
+    focusObject(_objects.length - 1);
+}
+
+function _onBoxesPointerCancel() {
+    _drawStart = null;
+    _draft = null;
+    _renderBoxes();
 }
 
 /**
@@ -424,12 +565,14 @@ function _renderGallery() {
 
         const img = document.createElement("img");
         img.src = item.thumb;
-        img.alt = item.label;
+        // A capture can hold several boxes of the same class: list each class once.
+        const labels = [...new Set(item.labels)].join(", ") || "no objects";
+        img.alt = labels;
         img.draggable = false;
 
         const badge = document.createElement("span");
         badge.className = "labeler-gallery-badge";
-        badge.textContent = item.label;
+        badge.textContent = labels;
 
         const tag = document.createElement("span");
         tag.className = `labeler-split-tag ${item.split}`;

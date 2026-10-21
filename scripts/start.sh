@@ -100,7 +100,7 @@ if [ "$POWER_MACHINE" != "none" ]; then
   POWER_PID=$!
 fi
 
-python3 "$PROJECT_DIR/ros_nodes/labelerNode.py" --ros-args -p camera_topic:="$LABELER_CAMERA_TOPIC" &
+python3 "$PROJECT_DIR/ros_nodes/labelerNode.py" --ros-args --params-file "$PROJECT_DIR/ros_nodes/labeler_params.yaml" -p camera_topic:="$LABELER_CAMERA_TOPIC" &
 LABELER_PID=$!
 
 python3 "$SCRIPT_DIR/serve.py" --port "$HTTP_PORT" --bind "$HOST" --directory "$PROJECT_DIR" &

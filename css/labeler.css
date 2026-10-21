@@ -178,71 +178,124 @@
     text-align: center;
 }
 
-.labeler-prediction-result {
+/* Detected objects: one row per box, colored like its box on the image */
+
+.labeler-objects {
     width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
 }
 
-.labeler-prediction-label {
-    font-size: 22px;
+.labeler-object {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 6px;
+}
+
+.labeler-object-swatch {
+    min-width: 24px;
+    height: 28px;
+    border-radius: 6px;
+    background: var(--object-color);
+    color: #000;
+    font-size: var(--fs-meta);
     font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.labeler-object-label {
+    font-size: var(--fs-body);
+    font-weight: 600;
     color: var(--foreground);
     -webkit-text-fill-color: var(--foreground);
     color-scheme: dark;
-    text-transform: capitalize;
-    letter-spacing: 0.3px;
     font-family: inherit;
     background: var(--card);
     border: 1px solid #3a3d40;
+    border-left: 3px solid var(--object-color);
     border-radius: 6px;
     width: 100%;
-    padding: 6px 10px;
+    min-height: var(--tap);
+    padding: 0 8px;
     box-sizing: border-box;
-    cursor: text;
     -webkit-appearance: none;
     appearance: none;
     transition: border-color 0.15s;
 }
 
-.labeler-prediction-label:hover {
-    border-color: var(--primary);
-}
-
-.labeler-prediction-label:focus {
+.labeler-object-label:hover,
+.labeler-object-label:focus {
     outline: none;
     border-color: var(--primary);
+    border-left-color: var(--object-color);
 }
 
-.labeler-confidence {
+.labeler-object-label::placeholder {
+    color: var(--danger);
+    -webkit-text-fill-color: var(--danger);
+    font-weight: 600;
+}
+
+.labeler-object-conf {
+    font-size: var(--fs-meta);
+    font-weight: 700;
+    color: var(--sidebar-muted);
+    min-width: 34px;
+    text-align: right;
+}
+
+.labeler-object-remove {
+    width: var(--tap);
+    height: var(--tap);
+    border-radius: 6px;
+    border: 1px solid #3a3d40;
+    background: var(--card);
+    color: var(--sidebar-muted);
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: center;
+    cursor: pointer;
 }
 
-.labeler-confidence-bar {
-    flex: 1;
-    height: 5px;
-    background: #3a3d40;
-    border-radius: 3px;
-    overflow: hidden;
+.labeler-object-remove:active {
+    color: var(--danger);
+    border-color: var(--danger);
 }
 
-.labeler-confidence-fill {
+.labeler-objects-hint {
+    font-size: var(--fs-meta);
+    color: var(--sidebar-muted);
+    opacity: 0.7;
+    text-align: center;
+}
+
+/* Boxes over the frozen frame: the SVG letterboxes like the img's object-fit: contain */
+
+.labeler-boxes {
+    position: absolute;
+    inset: 0;
+    width: 100%;
     height: 100%;
-    background: var(--primary);
-    border-radius: 3px;
-    width: 0%;
-    transition: width 0.5s ease;
+    touch-action: none;
+    cursor: crosshair;
 }
 
-.labeler-confidence-value {
-    font-size: 12px;
+.labeler-boxes rect {
+    fill: none;
+    stroke-width: 3px;
+    vector-effect: non-scaling-stroke;
+}
+
+.labeler-boxes text {
+    font-family: inherit;
     font-weight: 700;
-    color: var(--primary);
-    min-width: 36px;
-    text-align: right;
+    paint-order: stroke;
+    stroke: rgba(0, 0, 0, 0.8);
+    stroke-width: 0.2em;
 }
 
 /* Confirm / Discard */

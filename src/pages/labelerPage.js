@@ -5,14 +5,14 @@ import {
   subscribeLabelerResponse,
 } from "../ros/connection.js";
 
-const CLASSIFY_TIMEOUT_MS = 10000;
+// OWLv2 takes a few seconds per photo on a CPU-only robot.
+const DETECT_TIMEOUT_MS = 30000;
 const GALLERY_RETRY_MS = 2000;
 
 let _pendingSnapshot  = null;
-let _pendingLabel     = null;
 let _pendingRequestId = null;
 let _unsubResponse    = null;
-let _classifyTimeout  = null;
+let _detectTimeout    = null;
 let _galleryOffset       = 0;
 let _galleryRetryTimer   = null;
 
@@ -37,18 +37,18 @@ async function _onCapture() {
   LabelerView.triggerFlash();
   LabelerView.showFrozenFrame(dataUrl);
   LabelerView.showAnalyzing(true);
-  LabelerView.setStatus(true, "Analyzing…");
+  LabelerView.setStatus(true, "Finding objects…");
 
-  publishLabelerRequest({ action: "classify", request_id: _pendingRequestId });
+  publishLabelerRequest({ action: "detect", request_id: _pendingRequestId });
 
   const requestId = _pendingRequestId;
-  clearTimeout(_classifyTimeout);
-  _classifyTimeout = setTimeout(() => {
+  clearTimeout(_detectTimeout);
+  _detectTimeout = setTimeout(() => {
     if (_pendingRequestId !== requestId) return;
-    console.error("[labeler] Classify timed out — no response from rosbridge.");
+    console.error("[labeler] Detect timed out — no response from rosbridge.");
     LabelerView.setStatus(false, "No response from server");
     _reset();
-  }, CLASSIFY_TIMEOUT_MS);
+  }, DETECT_TIMEOUT_MS);
 }
 
 /**
@@ -78,20 +78,20 @@ function _onGalleryPage(data) {
 }
 
 function _onResponse(data) {
-  if (data.action === "classify") {
-    clearTimeout(_classifyTimeout);
+  // A late answer to an older capture (after its timeout or a discard) must not replace this one.
+  if (data.action === "detect" && data.request_id === _pendingRequestId) {
+    clearTimeout(_detectTimeout);
     LabelerView.showAnalyzing(false);
 
     if (data.success) {
-      _pendingLabel = data.label;
       if (data.frame) {
         _pendingSnapshot = data.frame;
         LabelerView.showFrozenFrame(data.frame);
       }
-      LabelerView.showPrediction(data.label, data.confidence);
-      LabelerView.setStatus(true, "Review result");
+      LabelerView.showDetections(data);
+      LabelerView.setStatus(true, "Review the boxes");
     } else {
-      console.error("[labeler] Classification error:", data.error);
+      console.error("[labeler] Detection error:", data.error);
       LabelerView.setStatus(false, data.error ?? "Error");
       _reset();
     }
@@ -126,21 +126,27 @@ function _onResponse(data) {
 }
 
 function _onConfirm() {
-  if (!_pendingSnapshot || !_pendingLabel) return;
+  if (!_pendingSnapshot) return;
 
-  const label = LabelerView.getPredictionLabel() || _pendingLabel;
+  const objects = LabelerView.getObjects();
+  const unnamed = objects.findIndex((obj) => !obj.label);
+  if (unnamed >= 0) {
+    LabelerView.setStatus(false, `Box ${unnamed + 1} needs a class`);
+    LabelerView.focusObject(unnamed);
+    return;
+  }
   const split = LabelerView.getCurrentSplit();
 
   // Kept by the node as an unsaved capture; it only reaches the dataset
   // once saved from the gallery.
   publishLabelerRequest({
     action:     "stage",
-    label,
     split,
+    objects,
     request_id: _pendingRequestId,
   });
 
-  console.log(`[labeler] Confirmed: "${label}" → ${split}`);
+  console.log(`[labeler] Confirmed: ${objects.map((obj) => obj.label).join(", ") || "no objects"} → ${split}`);
   _reset();
 }
 
@@ -163,10 +169,9 @@ function _onDiscard() {
 }
 
 function _reset() {
-  clearTimeout(_classifyTimeout);
-  _classifyTimeout  = null;
+  clearTimeout(_detectTimeout);
+  _detectTimeout    = null;
   _pendingSnapshot  = null;
-  _pendingLabel     = null;
   _pendingRequestId = null;
 
   LabelerView.resetPrediction();
@@ -203,12 +208,11 @@ export function destroyLabeler() {
     publishLabelerRequest({ action: "discard", request_id: _pendingRequestId });
   }
 
-  clearTimeout(_classifyTimeout);
+  clearTimeout(_detectTimeout);
   clearTimeout(_galleryRetryTimer);
-  _classifyTimeout  = null;
+  _detectTimeout    = null;
   _galleryRetryTimer   = null;
   _pendingSnapshot  = null;
-  _pendingLabel     = null;
   _pendingRequestId = null;
 
   LabelerView.destroyView();

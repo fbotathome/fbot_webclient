@@ -1,36 +1,33 @@
 labeler_node:
   ros__parameters:
-    # Lista de classes que o CLIP vai usar para classificação zero-shot.
-    # Adicione ou remova conforme os objetos que você quer reconhecer.
-    # Só vale enquanto datasets_path não tiver imagens rotuladas: quando há
-    # pelo menos 2 classes em {datasets_path}/{label}/train/, o node treina
-    # com elas e as classes passam a ser os nomes dessas pastas.
+    # Classes que o detector (OWLv2) procura em cada foto, pelo nome.
+    # Use nomes em inglês: o OWLv2 acha bem mais com "cup" do que com "copo".
+    # As classes que já têm caixa no dataset entram na busca sozinhas, então uma
+    # classe nova digitada na revisão passa a ser procurada na próxima foto.
     classes:
-      - copo
-      - garrafa
-      - tigela
-      - caixa
-      - prato
-      - talheres
+      - cup
+      - mug
+      - bottle
+      - bowl
+      - box
+      - plate
+      - cutlery
       - banana
-      - tesoura
-      - livro
-      - caneta
+      - scissors
+      - book
+      - pen
 
-    # Pasta raiz onde os datasets serão salvos.
-    # Estrutura gerada: {datasets_path}/{label}/{split}/{timestamp}.jpg
+    # Pasta raiz do dataset, no formato COCO do Roboflow:
+    #   {datasets_path}/{train|valid}/{timestamp}.jpg
+    #   {datasets_path}/{train|valid}/_annotations.coco.json
     # As capturas confirmadas só são gravadas aqui quando salvas pela galeria
-    # do webclient; a galeria lista o que estiver nesta pasta.
+    # do webclient. Um export COCO do Roboflow pode ser copiado para cá: as
+    # classes dele entram na busca (a galeria só lista as fotos do labeler).
     datasets_path: ~/datasets
 
-    # Modelo CLIP a usar.
-    # Opções (do mais leve ao mais preciso):
-    #   openai/clip-vit-base-patch32   (default — rápido)
-    #   openai/clip-vit-base-patch16
-    #   openai/clip-vit-large-patch14  (mais preciso — usado no label_propagation)
-    clip_model: openai/clip-vit-base-patch32
+    # Modelo do detector (Hugging Face). Baixado na primeira vez (~600 MB);
+    # usa a GPU se houver (~0,5 s por foto), senão a CPU (alguns segundos).
+    detector_model: google/owlv2-base-patch16-ensemble
 
-    # Tópico da câmera RGB do robô (sensor_msgs/Image). Ajuste aqui se o
-    # tópico real do robô tiver outro nome — troque também o parâmetro
-    # ?camera_topic= na URL do webclient para o mesmo valor.
-    camera_topic: /camera/color/image_raw
+    # O tópico da câmera vem do start.sh (LABELER_CAMERA_TOPIC), que também
+    # aponta a página para ele.
