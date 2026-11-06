@@ -1,12 +1,12 @@
 import {
   subscribeMap,
+  subscribeGlobalCostmap,
   subscribePose,
   publishGoalPose,
   callGetPoseSet,
   subscribeNavStatus,
   subscribeNavFeedback,
   callCancelNavigation,
-  subscribeOdometry,
   subscribePlan,
   subscribeScan,
   subscribeTfStatic,
@@ -55,67 +55,32 @@ function _quaternionToYaw(q) {
   return Math.atan2(siny_cosp, cosy_cosp);
 }
 
+function _gridFromMsg(msg) {
+  return {
+    width: msg.info.width,
+    height: msg.info.height,
+    resolution: msg.info.resolution,
+    originX: msg.info.origin.position.x,
+    originY: msg.info.origin.position.y,
+    data: msg.data,
+  };
+}
+
 export function startMapSubscription(onMap) {
-  return subscribeMap((msg) => {
-    onMap({
-      width: msg.info.width,
-      height: msg.info.height,
-      resolution: msg.info.resolution,
-      originX: msg.info.origin.position.x,
-      originY: msg.info.origin.position.y,
-      data: msg.data,
-    });
-  });
+  return subscribeMap((msg) => onMap(_gridFromMsg(msg)));
+}
+
+export function startCostmapSubscription(onCostmap) {
+  return subscribeGlobalCostmap((msg) => onCostmap(_gridFromMsg(msg)));
 }
 
 function _poseFromMsg(pose) {
   return { x: pose.position.x, y: pose.position.y, yaw: _quaternionToYaw(pose.orientation) };
 }
 
-/**
- * Smooth map pose: AMCL only publishes after some motion, so odometry fills in
- * between updates: pose = amcl ⊕ (odom_at_amcl⁻¹ ⊕ odom_now).
- */
+/** Map pose from the TF map -> base_footprint, the same one RViz draws (looked up on the robot: /tf is too heavy for rosbridge). */
 export function startPoseSubscription(onPose) {
-  let amcl = null; // last AMCL pose (map)
-  let odomAtAmcl = null; // odometry when it arrived
-  let odom = null; // latest odometry
-
-  const emit = () => {
-    if (!amcl) return;
-    if (!odom || !odomAtAmcl) {
-      onPose(amcl);
-      return;
-    }
-    // Motion since the AMCL update, expressed in the robot frame at that time.
-    const dxo = odom.x - odomAtAmcl.x;
-    const dyo = odom.y - odomAtAmcl.y;
-    const c0 = Math.cos(-odomAtAmcl.yaw);
-    const s0 = Math.sin(-odomAtAmcl.yaw);
-    const dx = c0 * dxo - s0 * dyo;
-    const dy = s0 * dxo + c0 * dyo;
-    const c = Math.cos(amcl.yaw);
-    const s = Math.sin(amcl.yaw);
-    onPose({
-      x: amcl.x + c * dx - s * dy,
-      y: amcl.y + s * dx + c * dy,
-      yaw: amcl.yaw + (odom.yaw - odomAtAmcl.yaw),
-    });
-  };
-
-  const unsubAmcl = subscribePose((msg) => {
-    amcl = _poseFromMsg(msg.pose.pose);
-    odomAtAmcl = odom;
-    emit();
-  });
-  const unsubOdom = subscribeOdometry((msg) => {
-    odom = _poseFromMsg(msg.pose.pose);
-    emit();
-  });
-  return () => {
-    unsubAmcl();
-    unsubOdom();
-  };
+  return subscribePose((msg) => onPose(_poseFromMsg(msg.pose)));
 }
 
 /** Nav2's global plan (/plan) as [{ x, y }] in the map frame. */

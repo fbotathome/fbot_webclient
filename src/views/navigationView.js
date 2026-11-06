@@ -9,6 +9,8 @@ const GOAL_COLOR = "#4caf50";
 const PATH_COLOR = "#7e57c2";
 const SCAN_COLOR = "#e53935";
 const POSE_ESTIMATE_COLOR = "#ffb300";
+const COSTMAP_LETHAL_COLOR = [229, 57, 53, 170];
+const COSTMAP_INFLATION_RGB = [255, 179, 0];
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 12;
 const ZOOM_STEP = 1.15;
@@ -20,6 +22,7 @@ let _resizeObserver = null;
 
 let _mapCanvas = null;
 let _mapInfo = null; // { widthPx, heightPx, resolution, originX, originY }
+let _costmap = null; // { canvas, info: { width, height, resolution, originX, originY } }
 
 let _robotPose = null; // { x, y, yaw }
 let _locations = []; // [{ label, x, y, yaw }]
@@ -177,6 +180,14 @@ function _draw() {
     _ctx.drawImage(_mapCanvas, topLeft.x, topLeft.y, _mapInfo.widthPx * _scale(), _mapInfo.heightPx * _scale());
   }
 
+  if (_costmap) {
+    const i = _costmap.info;
+    // The costmap can have its own resolution, so size it in map cells.
+    const cells = i.resolution / _mapInfo.resolution;
+    const topLeft = _worldToScreen(i.originX, i.originY + i.height * i.resolution);
+    _ctx.drawImage(_costmap.canvas, topLeft.x, topLeft.y, i.width * cells * _scale(), i.height * cells * _scale());
+  }
+
   _drawPath();
   _drawScan();
 
@@ -240,19 +251,26 @@ function _cellColor(value) {
   ];
 }
 
-function _rebuildMapCanvas(map) {
-  _mapCanvas = document.createElement("canvas");
-  _mapCanvas.width = map.width;
-  _mapCanvas.height = map.height;
-  const ctx = _mapCanvas.getContext("2d");
-  const imageData = ctx.createImageData(map.width, map.height);
+// Nav2 costmap values: 0 free, 1-98 inflation, 99 inscribed, 100 lethal, -1 unknown.
+function _costColor(value) {
+  if (value <= 0) return [0, 0, 0, 0];
+  if (value >= 99) return COSTMAP_LETHAL_COLOR;
+  return [COSTMAP_INFLATION_RGB[0], COSTMAP_INFLATION_RGB[1], COSTMAP_INFLATION_RGB[2], Math.round(40 + value * 1.2)];
+}
 
-  for (let row = 0; row < map.height; row++) {
-    const imgRow = map.height - 1 - row;
-    for (let col = 0; col < map.width; col++) {
-      const value = map.data[row * map.width + col];
-      const [r, g, b, a] = _cellColor(value);
-      const idx = (imgRow * map.width + col) * 4;
+function _gridCanvas(grid, colorFn) {
+  const canvas = document.createElement("canvas");
+  canvas.width = grid.width;
+  canvas.height = grid.height;
+  const ctx = canvas.getContext("2d");
+  const imageData = ctx.createImageData(grid.width, grid.height);
+
+  for (let row = 0; row < grid.height; row++) {
+    const imgRow = grid.height - 1 - row;
+    for (let col = 0; col < grid.width; col++) {
+      const value = grid.data[row * grid.width + col];
+      const [r, g, b, a] = colorFn(value);
+      const idx = (imgRow * grid.width + col) * 4;
       imageData.data[idx] = r;
       imageData.data[idx + 1] = g;
       imageData.data[idx + 2] = b;
@@ -261,6 +279,7 @@ function _rebuildMapCanvas(map) {
   }
 
   ctx.putImageData(imageData, 0, 0);
+  return canvas;
 }
 
 export function renderMap(map) {
@@ -271,8 +290,14 @@ export function renderMap(map) {
     originX: map.originX,
     originY: map.originY,
   };
-  _rebuildMapCanvas(map);
+  _mapCanvas = _gridCanvas(map, _cellColor);
   _computeTransform();
+  _draw();
+}
+
+/** Global costmap overlay; null hides it. */
+export function setCostmap(grid) {
+  _costmap = grid ? { canvas: _gridCanvas(grid, _costColor), info: grid } : null;
   _draw();
 }
 
@@ -520,6 +545,7 @@ export function destroyView() {
   _wrapper = null;
   _mapCanvas = null;
   _mapInfo = null;
+  _costmap = null;
   _robotPose = null;
   _locations = [];
   _goal = null;

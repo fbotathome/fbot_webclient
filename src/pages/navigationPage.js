@@ -1,6 +1,7 @@
 import * as NavigationView from "../views/navigationView.js";
 import {
   startMapSubscription,
+  startCostmapSubscription,
   startPoseSubscription,
   startPathSubscription,
   startScanSubscription,
@@ -37,6 +38,8 @@ let _cancelBtn = null;
 let _abortController = null;
 let _groupSelect = null;
 let _poseBtn = null;
+let _costmapBtn = null;
+let _unsubCostmap = null; // only subscribed while the overlay is on, to save bandwidth
 let _hintEl = null;
 let _hintTimer = null;
 let _poseMode = false;
@@ -188,6 +191,17 @@ function _setPoseMode(on) {
   if (on && _preview) _discardGoal();
 }
 
+function _setCostmapVisible(on) {
+  if (on && !_unsubCostmap) {
+    _unsubCostmap = startCostmapSubscription((grid) => NavigationView.setCostmap(grid));
+  } else if (!on && _unsubCostmap) {
+    _unsubCostmap();
+    _unsubCostmap = null;
+    NavigationView.setCostmap(null);
+  }
+  if (_costmapBtn) _costmapBtn.setAttribute("aria-pressed", String(on));
+}
+
 async function _onPoseSelected(x, y, yaw) {
   // A plain click keeps the heading AMCL currently believes.
   if (yaw === null) yaw = NavigationView.getRobotPose()?.yaw ?? 0;
@@ -249,6 +263,7 @@ export function initNavigation() {
   _cancelBtn = document.getElementById("nav-cancel-btn");
   _groupSelect = document.getElementById("nav-group-select");
   _poseBtn = document.getElementById("nav-pose-btn");
+  _costmapBtn = document.getElementById("nav-costmap-btn");
   _hintEl = document.getElementById("nav-goal-hint");
   _abortController = new AbortController();
   const signal = _abortController.signal;
@@ -258,6 +273,7 @@ export function initNavigation() {
   NavigationView.onLocationSelected((loc) => _pickGoal(loc.x, loc.y, loc.yaw, loc.label));
   NavigationView.onPoseSelected(_onPoseSelected);
   _poseBtn.addEventListener("click", () => _setPoseMode(!_poseMode), { signal });
+  _costmapBtn.addEventListener("click", () => _setCostmapVisible(!_unsubCostmap), { signal });
   _groupSelect.addEventListener("change", () => _loadLocations(_groupSelect.value), { signal });
   _goBtn.addEventListener("click", _confirmGoal, { signal });
   _discardBtn.addEventListener("click", _discardGoal, { signal });
@@ -285,6 +301,7 @@ export function destroyNavigation() {
   }
   _unsubscribers.forEach((unsubscribe) => unsubscribe());
   _unsubscribers = [];
+  _setCostmapVisible(false);
 
   NavigationView.destroyView();
 
@@ -293,6 +310,7 @@ export function destroyNavigation() {
   _poseMode = false;
   _groupSelect = null;
   _poseBtn = null;
+  _costmapBtn = null;
   _hintEl = null;
   _hintTimer = null;
   _mapWrapper = null;

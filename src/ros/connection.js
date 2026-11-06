@@ -82,9 +82,15 @@ export const TOPICS = Object.freeze({
     name: "/map",
     type: "nav_msgs/OccupancyGrid",
   },
-  amclPose: {
-    name: "/amcl_pose",
-    type: "geometry_msgs/PoseWithCovarianceStamped",
+  // Nav2's global costmap, already in the map frame.
+  globalCostmap: {
+    name: "/global_costmap/costmap",
+    type: "nav_msgs/OccupancyGrid",
+  },
+  // TF map -> base_footprint, as RViz draws the robot (ros_nodes/robotPosePublisher.py).
+  robotPose: {
+    name: "/fbot_webclient/robot_pose",
+    type: "geometry_msgs/PoseStamped",
   },
   goalPose: {
     name: "/goal_pose",
@@ -94,11 +100,6 @@ export const TOPICS = Object.freeze({
   initialPose: {
     name: "/initialpose",
     type: "geometry_msgs/PoseWithCovarianceStamped",
-  },
-  // Fills in the motion between AMCL updates.
-  odometry: {
-    name: "/odometry/filtered",
-    type: "nav_msgs/Odometry",
   },
   plan: {
     name: "/plan",
@@ -302,9 +303,21 @@ export function subscribeMap(callback) {
   return trackSubscription(_map, callback);
 }
 
-const _amclPose = createTopic(TOPICS.amclPose.name, TOPICS.amclPose.type);
+// Large grid published at ~1 Hz; one message a second is plenty for the overlay.
+const _globalCostmap = createTopic(TOPICS.globalCostmap.name, TOPICS.globalCostmap.type, {
+  throttle_rate: 1000,
+  queue_length: 1,
+});
+export function subscribeGlobalCostmap(callback) {
+  return trackSubscription(_globalCostmap, callback);
+}
+
+const _robotPose = createTopic(TOPICS.robotPose.name, TOPICS.robotPose.type, {
+  throttle_rate: 100,
+  queue_length: 1,
+});
 export function subscribePose(callback) {
-  return trackSubscription(_amclPose, callback);
+  return trackSubscription(_robotPose, callback);
 }
 
 const _goalPose = createPublisher(TOPICS.goalPose.name, TOPICS.goalPose.type);
@@ -350,14 +363,6 @@ export function publishInitialPose(x, y, yawRad) {
       },
     }),
   );
-}
-
-const _odometry = createTopic(TOPICS.odometry.name, TOPICS.odometry.type, {
-  throttle_rate: 100,
-  queue_length: 1,
-});
-export function subscribeOdometry(callback) {
-  return trackSubscription(_odometry, callback);
 }
 
 const _plan = createTopic(TOPICS.plan.name, TOPICS.plan.type, {

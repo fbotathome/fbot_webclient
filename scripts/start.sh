@@ -48,8 +48,8 @@ echo "Access: $ACCESS_URL"
 
 cleanup() {
   echo "\nShutting down services..."
-  kill $CAMERA_PID $BRIDGE_PID $VIDEO_PID $STATUS_PID $PICK_PID $LOGS_PID $BAG_PID $TASKS_PID $LABELER_PID $POWER_PID $HTTP_PID 2>/dev/null
-  wait $CAMERA_PID $BRIDGE_PID $VIDEO_PID $STATUS_PID $PICK_PID $LOGS_PID $BAG_PID $TASKS_PID $LABELER_PID $POWER_PID $HTTP_PID 2>/dev/null
+  kill $CAMERA_PID $BRIDGE_PID $VIDEO_PID $STATUS_PID $POSE_PID $PICK_PID $LOGS_PID $BAG_PID $TASKS_PID $LABELER_PID $POWER_PID $HTTP_PID 2>/dev/null
+  wait $CAMERA_PID $BRIDGE_PID $VIDEO_PID $STATUS_PID $POSE_PID $PICK_PID $LOGS_PID $BAG_PID $TASKS_PID $LABELER_PID $POWER_PID $HTTP_PID 2>/dev/null
   for port in $HTTP_PORT $WEB_VIDEO_PORT $BAG_PORT $ROSBRIDGE_PORT; do
     fuser -k $port/tcp 2>/dev/null || true
   done
@@ -79,6 +79,9 @@ VIDEO_PID=$!
 
 python3 "$PROJECT_DIR/ros_nodes/robotStatusPublisher.py" &
 STATUS_PID=$!
+
+python3 "$PROJECT_DIR/ros_nodes/robotPosePublisher.py" &
+POSE_PID=$!
 
 python3 "$PROJECT_DIR/ros_nodes/pickObjectBridge.py" &
 PICK_PID=$!
