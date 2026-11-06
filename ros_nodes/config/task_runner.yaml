@@ -43,7 +43,7 @@ tasks:
     name: Receptionist
     components:
       - description: {arm_z_position: "0.23"}
-      - manipulator: {arm_type: "wx200"}
+      - manipulator: {arm_type: "xarm6"}
       - navigation
       - world: {config_file_name: "receptionist_poses"}
       - camera: {use_realsense: "false", use_femtobolt: "true"}
@@ -62,7 +62,7 @@ tasks:
     name: Storing Groceries
     components:
       - description: {arm_z_position: "0.23"}
-      - manipulator: {arm_type: "wx200"}
+      - manipulator: {arm_type: "xarm6"}
       - navigation: {use_navigation_rviz: "false"}
       - world: {config_file_name: "storing_groceries_poses"}
       - camera: {use_realsense: "false", use_femtobolt: "true"}
@@ -78,7 +78,7 @@ tasks:
     name: Clean the Table
     components:
       - description: {arm_z_position: "0.23"}
-      - manipulator: {arm_type: "wx200"}
+      - manipulator: {arm_type: "xarm6"}
       - navigation: {use_navigation_rviz: "true"}
       - world: {config_file_name: "pose_clean_the_table"}
       - camera: {use_realsense: "false", use_femtobolt: "true"}
@@ -92,7 +92,7 @@ tasks:
     name: Clean Up
     components:
       - description: {arm_z_position: "0.23"}
-      - manipulator: {arm_type: "wx200"}
+      - manipulator: {arm_type: "xarm6"}
       - navigation: {use_navigation_rviz: "false"}
       - world: {config_file_name: "clean_up_poses"}
       - camera: {use_realsense: "false", use_femtobolt: "true"}
@@ -123,7 +123,7 @@ tasks:
     name: Manipulation & Object Recognition
     components:
       - description: {arm_z_position: "0.23"}
-      - manipulator: {arm_type: "wx200"}
+      - manipulator: {arm_type: "xarm6"}
       - navigation: {use_navigation_rviz: "false"}
       - world: {config_file_name: "mor_poses"}
       - camera: {use_realsense: "false", use_femtobolt: "true"}
@@ -139,7 +139,7 @@ tasks:
     name: GPSR (agent)
     components:
       - description: {arm_z_position: "0.23"}
-      - manipulator: {arm_type: "wx200"}
+      - manipulator: {arm_type: "xarm6"}
       - navigation
       - world: {config_file_name: "pose_gpsr"}
       - camera: {use_realsense: "false", use_femtobolt: "true"}
@@ -173,7 +173,7 @@ tasks:
     name: EGPSR
     components:
       - description: {arm_z_position: "0.23"}
-      - manipulator: {arm_type: "wx200"}
+      - manipulator: {arm_type: "xarm6"}
       - navigation
       - world: {config_file_name: "egpsr_poses"}
       - camera: {use_realsense: "false", use_femtobolt: "true"}
@@ -190,7 +190,7 @@ tasks:
     name: Help Me Carry
     components:
       - description: {arm_z_position: "0.23"}
-      - manipulator: {arm_type: "wx200"}
+      - manipulator: {arm_type: "xarm6"}
       - navigation
       - world: {config_file_name: "help_me_carry"}
       - camera: {use_realsense: "false", use_femtobolt: "true"}
@@ -322,7 +322,7 @@ tasks:
     name: Final
     components:
       - description: {arm_z_position: "0.23"}
-      - manipulator: {arm_type: "wx200"}
+      - manipulator: {arm_type: "xarm6"}
       - navigation
       - world: {config_file_name: "pose_gpsr"}
       - camera: {use_realsense: "false", use_femtobolt: "true"}
