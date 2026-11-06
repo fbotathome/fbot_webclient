@@ -1,51 +1,62 @@
 #!/usr/bin/env python3
 """
-Labeler node — acha os objetos de cada foto com o OWLv2 e grava um dataset de detecção (COCO).
+Labeler node — o fluxo de dataset da competição pela página:
+  1. guarda as fotos que a página tira (a câmera do navegador, ou o tópico da câmera do robô
+     quando o navegador não tem câmera) numa rodada, uma pasta de imagens por split;
+  2. sobe a rodada no Roboflow, onde as fotos de demonstração são anotadas com polígonos;
+  3. baixa o dataset (export yolov8 de uma versão) e treina um YOLO de segmentação;
+  4. rotula outra rodada com o modelo e sobe as fotos já anotadas para revisar no Roboflow.
+Os passos 2 a 4 são jobs, um por vez, numa thread; treino e rotulagem rodam o
+labelerTrain.py como subprocesso (o node não importa o torch).
 
 Tópicos:
-  SUB  <camera_topic>                   sensor_msgs/Image
+  SUB  <camera_topic>                   sensor_msgs/Image (só quando a foto vem sem "image")
   SUB  /fbot_webclient/labeler/request  std_msgs/String  (JSON)
   PUB  /fbot_webclient/labeler/response std_msgs/String  (JSON)
 
 Protocolo JSON (request):
-  { "action": "detect",          "request_id": "<str>" }
-  { "action": "stage",           "split": "train"|"valid", "objects": [<object>, ...], "request_id": "<str>" }
-  { "action": "discard",         "request_id": "<str>" }
+  { "action": "capture",         "round": "<str>", "split": "train"|"valid", "image"?: "data:image/jpeg;base64,..." }
   { "action": "save",            "ids": ["<str>", ...] }
-  { "action": "gallery_list",    "offset": <int> }
-  { "action": "discard_unsaved" }
+  { "action": "gallery_list",    "round": "<str>", "offset": <int> }
+  { "action": "discard_unsaved", "round": "<str>" }
+  { "action": "rounds" }
+  { "action": "status" }                                  Roboflow configurado, datasets, modelos, job
+  { "action": "upload",          "round": "<str>", "labels": <bool> }   fotos (e anotações do modelo) → Roboflow
+  { "action": "dataset",         "new_version": <bool> }  gera (ou pega a última) versão e baixa o export
+  { "action": "train",           "version": "v<N>", "epochs": <int> }
+  { "action": "label",           "round": "<str>", "model": "v<N>" }
+  { "action": "cancel_job" }
 
 Protocolo JSON (response):
-  { "action": "detect", "success": true, "objects": [<object>, ...], "classes": ["<str>", ...],
-    "width": <px>, "height": <px>, "frame": "data:image/jpeg;base64,...", "request_id": "<str>" }
-  { "action": "detect", "success": false, "error": "<str>", "request_id": "<str>" }
-  { "action": "stage",    "success": true,  "item": <item>,   "request_id": "<str>" }
-  { "action": "stage",    "success": false, "error": "<str>", "request_id": "<str>" }
+  { "action": "capture",  "success": true,  "item": <item> }
+  { "action": "capture",  "success": false, "error": "<str>" }
   { "action": "save",     "success": <bool>,
     "saved":  [{"id": "<str>", "new_id": "<str>", "path": "<str>"}],
     "errors": [{"id": "<str>", "error": "<str>"}] }
-  { "action": "gallery_list",    "success": true, "items": [<item>, ...], "offset": <int>, "total": <int> }
-  { "action": "discard_unsaved", "success": true }
+  { "action": "gallery_list",    "success": true, "round": "<str>", "items": [<item>, ...], "offset": <int>, "total": <int> }
+  { "action": "discard_unsaved", "success": true, "round": "<str>" }
+  { "action": "rounds",          "success": true,
+    "rounds": [{"name": "<str>", "train": <int>, "valid": <int>, "labeled": <int>}] }
+  { "action": "status",          "success": true, "roboflow": {"configured": <bool>, "project": "<str>"|null,
+    "config_file": "<str>"}, "versions": ["v<N>", ...], "models": ["v<N>", ...], "job": <job>|null }
+  { "action": "job",             "success": true, "job": <job> }   no início, a cada segundo com novidade, no fim
+  (um pedido inválido volta com "success": false e "error")
 
-  <object> = { "label": "<str>", "box": [x0, y0, x1, y1], "confidence": <0–1> }
-             (box normalizada pela largura e altura do frame; o detect manda a confiança, o stage não)
-  <item>   = { "id": "<str>", "labels": ["<str>", ...], "split": "<str>", "saved": <bool>,
-               "time": <ms>, "thumb": "data:image/jpeg;base64,..." }
+  <job>  = { "kind": "upload"|"dataset"|"train"|"label", "label": "<str>",
+             "state": "running"|"done"|"failed"|"canceled", "message": "<str>", "lines": ["<str>", ...] }
 
-Fluxo: "detect" trava o frame e devolve as caixas que o OWLv2 achou para as classes
-conhecidas; a página deixa trocar a classe, apagar e desenhar caixas; "stage" (botão
-Confirm) guarda o frame com as caixas revisadas como captura pendente, só em memória, e
-só aceita o request_id do detect que travou aquele frame; "save" grava as pendentes
-escolhidas no dataset. O que não foi salvo some quando o node reinicia.
+  <item> = { "id": "<str>", "round": "<str>", "split": "<str>", "saved": <bool>, "time": <ms>,
+             "thumb": "data:image/jpeg;base64,..." }
 
-Dataset: o formato COCO do Roboflow, por split:
-  {datasets_path}/{split}/{timestamp}.jpg
-  {datasets_path}/{split}/_annotations.coco.json
-Classes conhecidas = parâmetro "classes" + as que já têm caixa no dataset, então uma classe
-nova digitada na revisão passa a ser procurada na próxima foto.
+Fluxo: "capture" guarda a foto como captura pendente, só em memória; "save" grava as
+pendentes escolhidas. O que não foi salvo some quando o node reinicia.
 
-O campo "frame" é um JPEG reduzido do frame realmente capturado — a página desenha as
-caixas em cima dele, então a prévia é sempre o que vai ser salvo.
+Pastas em {root}:
+  {rodada}/{train|valid}/{timestamp}.jpg   só imagens
+  _versions/v<N>/                          export yolov8 da versão N do Roboflow
+  _models/v<N>/weights/best.pt             modelo treinado no dataset v<N> (e os pesos base, baixados aqui)
+  _labels/{rodada}/{split}/{foto}.json     anotação COCO do modelo para cada foto
+  _roboflow/{rodada}.json                  o que já subiu: {"train/<foto>": {"id", "labeled"}}
 """
 
 import base64
@@ -53,210 +64,204 @@ import io
 import json
 import os
 import re
+import shutil
+import signal
+import subprocess
+import sys
 import threading
 import time
+import zipfile
+from collections import deque
+from pathlib import Path
 
 import numpy as np
 import rclpy
+import requests
+from PIL import Image as PILImage
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from std_msgs.msg import String
 
-try:
-    import torch
-    import torchvision
-    from PIL import Image as PILImage
-    from PIL import ImageDraw
-    from transformers import Owlv2ForObjectDetection, Owlv2Processor
-    _HAS_DETECTOR_DEPS = True
-except ImportError:
-    _HAS_DETECTOR_DEPS = False
+from roboflowClient import CONFIG_FILE, Roboflow, RoboflowError, load_config
 
 SPLITS = ("train", "valid")
-ANNOTATIONS_FILE = "_annotations.coco.json"
 GALLERY_PAGE_SIZE = 24
-# Nome das fotos gravadas pelo labeler ({timestamp em ms}.jpg) — é o que as
-# distingue de imagens que entraram no dataset por outros meios (ex.: export do Roboflow).
+# Nome das fotos gravadas pelo labeler ({timestamp em ms}.jpg) — a galeria só lista essas.
 CAPTURE_NAME = re.compile(r"\d+\.jpg")
-BOX_COLOR = "#fe5000"
+# Vem da rede: vira nome de pasta. Sem "_" no começo, que é das pastas que não são rodada.
+ROUND_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,39}")
+JPEG_DATA_URL = "data:image/jpeg;base64,"
+MAX_IMAGE_CHARS = 16_000_000  # base64 de um JPEG de ~12 MB; uma foto 1920 px fica bem abaixo
+# Um frame mais velho que isso é de uma câmera que parou: salvá-lo repetiria a mesma foto.
+MAX_FRAME_AGE_S = 2.0
+# Vem da rede: vira nome de pasta (versão do dataset = nome do modelo treinado nela).
+VERSION_NAME = re.compile(r"v\d{1,5}")
+MAX_EPOCHS = 1000
+TRAIN_SCRIPT = Path(__file__).resolve().with_name("labelerTrain.py")
+SUBPROCESS_ENV = {"PYTHONUNBUFFERED": "1", "YOLO_AUTOINSTALL": "false"}  # never pip install mid-competition
+ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")  # ultralytics' progress bars clear the line with these
+JOB_LINES_KEPT = 200
+JOB_LINES_SENT = 40
+JOB_STOP_TIMEOUT_S = 10  # SIGINT, then SIGKILL
+EXPORT_POLL_S = 3
+EXPORT_TIMEOUT_S = 600   # Roboflow prepares a new version's export
 
 
-# ── Detector ─────────────────────────────────────────────────────────────────
-
-class OwlDetector:
-    """OWLv2 (vocabulário aberto): acha as caixas das classes pelo nome, sem treino."""
-
-    PROMPT = "a photo of a {}"
-    THRESHOLD = 0.2
-    NMS_IOU = 0.5   # caixas quase iguais com classes diferentes viram uma só, a de maior score
-
-    def __init__(self, model_name: str):
-        if not _HAS_DETECTOR_DEPS:
-            raise RuntimeError(
-                "torch, torchvision e transformers são necessários: pip install torch torchvision transformers Pillow"
-            )
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.processor = Owlv2Processor.from_pretrained(model_name)
-        self.model = Owlv2ForObjectDetection.from_pretrained(model_name).to(self.device)
-        self.model.eval()
-        # transformers 5 renomeou o pós-processamento; o 4.x só tem o nome antigo.
-        self._post_process = (getattr(self.processor, "post_process_grounded_object_detection", None)
-                              or self.processor.post_process_object_detection)
-
-    def detect(self, pil_image, classes: list[str]) -> list[dict]:
-        """Returns [{label, confidence, box}] with the box normalized to the image size."""
-        if not classes:
-            return []
-        inputs = self.processor(text=[[self.PROMPT.format(c) for c in classes]], images=pil_image,
-                                return_tensors="pt").to(self.device)
-        with torch.no_grad():
-            outputs = self.model(**inputs)
-
-        # O OWLv2 completa a imagem até um quadrado (embaixo e à direita): o lado maior
-        # devolve as caixas em pixels da imagem original.
-        side = max(pil_image.size)
-        result = self._post_process(outputs, threshold=self.THRESHOLD,
-                                    target_sizes=torch.tensor([[side, side]], device=self.device))[0]
-        keep = torchvision.ops.nms(result["boxes"], result["scores"], self.NMS_IOU)
-
-        width, height = pil_image.size
-        objects = []
-        for i in keep.tolist():
-            x0, y0, x1, y1 = result["boxes"][i].tolist()
-            box = [max(0.0, x0 / width), max(0.0, y0 / height), min(1.0, x1 / width), min(1.0, y1 / height)]
-            if box[2] > box[0] and box[3] > box[1]:
-                objects.append({"label": classes[int(result["labels"][i])],
-                                "confidence": float(result["scores"][i]), "box": box})
-        return objects
+def _version_name(name) -> str:
+    if not isinstance(name, str) or not VERSION_NAME.fullmatch(name):
+        raise ValueError("Versão inválida (ex.: v3)")
+    return name
 
 
-def _parse_objects(raw) -> list[dict]:
-    """Valida os objetos vindos da página: classe não vazia e caixa normalizada não vazia."""
-    if not isinstance(raw, list):
-        raise ValueError("Campo 'objects' ausente")
-    objects = []
-    for obj in raw:
-        label = str(obj.get("label", "")).strip()
-        if not label:
-            raise ValueError("Objeto sem classe")
-        box = [float(v) for v in obj.get("box", [])]
-        if len(box) != 4 or not (0.0 <= box[0] < box[2] <= 1.0 and 0.0 <= box[1] < box[3] <= 1.0):
-            raise ValueError(f"Caixa inválida para '{label}'")
-        objects.append({"label": label, "box": box})
-    return objects
+def _killpg(pid, sig):
+    try:
+        os.killpg(pid, sig)
+    except ProcessLookupError:
+        pass  # already gone
 
 
-def _thumbnail_jpeg(pil_image, max_size: int, quality: int, objects=()) -> bytes:
-    thumb = pil_image.convert("RGB")
+def _write_json(path: Path, data):
+    # Temporário e troca: um crash no meio não perde o que já foi enviado.
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.with_suffix(".tmp").write_text(json.dumps(data))
+    os.replace(path.with_suffix(".tmp"), path)
+
+
+class Job:
+    """One long piece of work (a Roboflow transfer, a training, a labeling), run in a thread."""
+
+    def __init__(self, kind: str, label: str):
+        self.kind, self.label = kind, label
+        self.state, self.message = "running", ""
+        self.lines = deque(maxlen=JOB_LINES_KEPT)
+        self._lines_lock = threading.Lock()  # the job's thread appends while the node's timer copies
+        self.cancel = threading.Event()
+        self.process = None
+        # Whatever a job prints passes through here: a Roboflow error can carry the API key.
+        self.secret = load_config().get("ROBOFLOW_API_KEY")
+        self.changed = True
+
+    def redact(self, text) -> str:
+        text = str(text)
+        return text.replace(self.secret, "***") if self.secret else text
+
+    def line(self, text):
+        with self._lines_lock:
+            self.lines.append(ANSI.sub("", self.redact(text)))
+        self.changed = True
+
+    def public(self) -> dict:
+        with self._lines_lock:
+            lines = list(self.lines)[-JOB_LINES_SENT:]
+        return {"kind": self.kind, "label": self.label, "state": self.state, "message": self.message, "lines": lines}
+
+
+def _round_name(name) -> str:
+    if not isinstance(name, str) or not ROUND_NAME.fullmatch(name):
+        raise ValueError("Nome de rodada inválido (letras, números, _ e -, até 40)")
+    return name
+
+
+def _decode_jpeg(data_url) -> bytes:
+    """Os bytes do JPEG vindo da página, conferidos: tamanho, base64 e que o PIL abre como JPEG."""
+    if not isinstance(data_url, str) or not data_url.startswith(JPEG_DATA_URL) or len(data_url) > MAX_IMAGE_CHARS:
+        raise ValueError("Imagem inválida (esperado um JPEG em data URL)")
+    try:
+        jpeg = base64.b64decode(data_url[len(JPEG_DATA_URL):], validate=True)
+        with PILImage.open(io.BytesIO(jpeg)) as img:
+            if img.format != "JPEG":
+                raise ValueError
+            img.verify()
+    except Exception:
+        raise ValueError("Imagem inválida (JPEG corrompido)") from None
+    return jpeg
+
+
+def _thumbnail_jpeg(jpeg: bytes, max_size: int, quality: int) -> bytes:
+    with PILImage.open(io.BytesIO(jpeg)) as img:
+        thumb = img.convert("RGB")
     thumb.thumbnail((max_size, max_size))
-    draw = ImageDraw.Draw(thumb)
-    for obj in objects:
-        x0, y0, x1, y1 = obj["box"]
-        draw.rectangle([x0 * thumb.width, y0 * thumb.height, x1 * thumb.width, y1 * thumb.height],
-                       outline=BOX_COLOR, width=2)
     buf = io.BytesIO()
     thumb.save(buf, "JPEG", quality=quality)
     return buf.getvalue()
 
 
 def _jpeg_data_url(jpeg: bytes) -> str:
-    return "data:image/jpeg;base64," + base64.b64encode(jpeg).decode("ascii")
-
-
-def _frame_to_data_url(pil_image, max_size: int = 960, quality: int = 80) -> str:
-    """JPEG reduzido do frame capturado, para a página revisar as caixas em cima dele —
-    960 px porque objeto pequeno some numa prévia menor."""
-    return _jpeg_data_url(_thumbnail_jpeg(pil_image, max_size, quality))
+    return JPEG_DATA_URL + base64.b64encode(jpeg).decode("ascii")
 
 
 # ── Dataset ──────────────────────────────────────────────────────────────────
 
 class Dataset:
     """
-    O dataset COCO em disco mais as capturas confirmadas que ainda não foram salvas
-    (só em memória). A galeria do webclient lista as fotos do labeler já salvas
-    ({timestamp}.jpg) e as pendentes; salvar grava a foto e as caixas no split.
+    As fotos em disco, por rodada, mais as capturas que ainda não foram salvas (só em
+    memória). A galeria do webclient lista as fotos do labeler já salvas
+    ({timestamp}.jpg) e as pendentes de uma rodada; salvar grava a foto no split.
     """
 
     THUMB_SIZE = 240
     THUMB_QUALITY = 75
 
-    def __init__(self, datasets_path: str):
-        self._path = datasets_path
-        self._pending = []   # [{id, split, time, frame, objects, thumb}], oldest first
+    def __init__(self, root: str):
+        self._root = root
+        self._pending = []   # [{id, round, split, time, jpeg, thumb}], oldest first
         self._thumbs = {}    # (path, mtime) → JPEG bytes
 
-    def _coco_path(self, split: str) -> str:
-        return os.path.join(self._path, split, ANNOTATIONS_FILE)
+    def rounds(self) -> list[dict]:
+        names = sorted(n for n in os.listdir(self._root) if ROUND_NAME.fullmatch(n)) if os.path.isdir(self._root) else []
+        counts = []
+        for name in names:
+            entries = self._saved_entries(name)
+            labels = os.path.join(self._root, "_labels", name)
+            labeled = sum(len(files) for _, _, files in os.walk(labels))
+            counts.append({"name": name, **{s: sum(e["split"] == s for e in entries) for s in SPLITS},
+                           "labeled": labeled})
+        return counts
 
-    def _load(self, split: str) -> dict:
-        try:
-            with open(self._coco_path(split)) as f:
-                return json.load(f)
-        except FileNotFoundError:
-            return {"images": [], "annotations": [], "categories": []}
+    def saved_photos(self, round_name: str) -> list[tuple[str, Path]]:
+        """(split, path) of the round's saved photos, oldest first."""
+        return [(e["split"], Path(e["path"])) for e in self._saved_entries(round_name)]
 
-    def _write(self, split: str, coco: dict):
-        # Grava num temporário e troca: um crash no meio não corrompe as anotações já salvas.
-        path = self._coco_path(split)
-        with open(path + ".tmp", "w") as f:
-            json.dump(coco, f)
-        os.replace(path + ".tmp", path)
-
-    def classes(self) -> list[str]:
-        """Categorias com pelo menos uma caixa no dataset (deixa de fora a superclasse do Roboflow)."""
-        names = []
-        for split in SPLITS:
-            coco = self._load(split)
-            used = {a["category_id"] for a in coco["annotations"]}
-            names += [c["name"] for c in coco["categories"] if c["id"] in used and c["name"] not in names]
-        return names
-
-    def _saved_entries(self) -> list[dict]:
+    def _saved_entries(self, round_name: str) -> list[dict]:
         entries = []
         for split in SPLITS:
-            coco = self._load(split)
-            names = {c["id"]: c["name"] for c in coco["categories"]}
-            boxes = {}
-            for a in coco["annotations"]:
-                boxes.setdefault(a["image_id"], []).append((names[a["category_id"]], a["bbox"]))
-            for img in coco["images"]:
-                path = os.path.join(self._path, split, img["file_name"])
-                if not CAPTURE_NAME.fullmatch(img["file_name"]) or not os.path.isfile(path):
-                    continue
-                w, h = img["width"], img["height"]
-                objects = [{"label": label, "box": [x / w, y / h, (x + bw) / w, (y + bh) / h]}
-                           for label, (x, y, bw, bh) in boxes.get(img["id"], [])]
-                entries.append({"id": f"{split}/{img['file_name']}", "split": split, "path": path,
-                                "time": int(img["file_name"][:-4]), "objects": objects})
+            split_dir = os.path.join(self._root, round_name, split)
+            if not os.path.isdir(split_dir):
+                continue
+            for name in os.listdir(split_dir):
+                path = os.path.join(split_dir, name)
+                if CAPTURE_NAME.fullmatch(name) and os.path.isfile(path):
+                    entries.append({"id": f"{round_name}/{split}/{name}", "round": round_name, "split": split,
+                                    "path": path, "time": int(name[:-4])})
         entries.sort(key=lambda e: (e["time"], e["id"]))
         return entries
 
     def _saved_thumb(self, entry: dict) -> bytes:
         key = (entry["path"], os.path.getmtime(entry["path"]))
         if key not in self._thumbs:
-            with PILImage.open(entry["path"]) as img:
-                self._thumbs[key] = _thumbnail_jpeg(img, self.THUMB_SIZE, self.THUMB_QUALITY, entry["objects"])
+            with open(entry["path"], "rb") as f:
+                self._thumbs[key] = _thumbnail_jpeg(f.read(), self.THUMB_SIZE, self.THUMB_QUALITY)
         return self._thumbs[key]
 
     def _public(self, entry: dict) -> dict:
-        saved = "frame" not in entry
+        saved = "jpeg" not in entry
         thumb = self._saved_thumb(entry) if saved else entry["thumb"]
-        return {"id": entry["id"], "labels": [o["label"] for o in entry["objects"]], "split": entry["split"],
-                "saved": saved, "time": entry["time"], "thumb": _jpeg_data_url(thumb)}
+        return {"id": entry["id"], "round": entry["round"], "split": entry["split"], "saved": saved,
+                "time": entry["time"], "thumb": _jpeg_data_url(thumb)}
 
-    def add(self, frame, objects: list[dict], split: str) -> dict:
+    def add(self, round_name: str, jpeg: bytes, split: str) -> dict:
         now = int(time.time() * 1000)
         if self._pending:
             now = max(now, self._pending[-1]["time"] + 1)
-        entry = {"id": f"pending:{now}", "split": split, "time": now, "frame": frame, "objects": objects,
-                 "thumb": _thumbnail_jpeg(frame, self.THUMB_SIZE, self.THUMB_QUALITY, objects)}
+        entry = {"id": f"pending:{now}", "round": round_name, "split": split, "time": now, "jpeg": jpeg,
+                 "thumb": _thumbnail_jpeg(jpeg, self.THUMB_SIZE, self.THUMB_QUALITY)}
         self._pending.append(entry)
         return self._public(entry)
 
-    def page(self, offset: int, limit: int = GALLERY_PAGE_SIZE) -> tuple[list[dict], int]:
+    def page(self, round_name: str, offset: int, limit: int = GALLERY_PAGE_SIZE) -> tuple[list[dict], int]:
         """Returns (items, total): saved images oldest first, then the pending ones."""
-        entries = self._saved_entries() + self._pending
+        entries = self._saved_entries(round_name) + [e for e in self._pending if e["round"] == round_name]
         items = []
         for entry in entries[offset:offset + limit]:
             try:
@@ -273,44 +278,22 @@ class Dataset:
             try:
                 if entry is None:
                     raise ValueError("Captura pendente não encontrada")
-                split, frame = entry["split"], entry["frame"]
-                os.makedirs(os.path.join(self._path, split), exist_ok=True)
+                # Os dois splits: quem lê a rodada pode esperar os dois.
+                for split in SPLITS:
+                    os.makedirs(os.path.join(self._root, entry["round"], split), exist_ok=True)
                 name = f"{entry['time']}.jpg"
-                path = os.path.join(self._path, split, name)
-                frame.save(path, "JPEG", quality=95)
-
-                coco = self._load(split)
-                image_id = max((i["id"] for i in coco["images"]), default=0) + 1
-                coco["images"].append({"id": image_id, "file_name": name, "width": frame.width, "height": frame.height})
-                annotation_id = max((a["id"] for a in coco["annotations"]), default=0)
-                for obj in entry["objects"]:
-                    x0, y0, x1, y1 = obj["box"]
-                    bbox = [round(x0 * frame.width, 2), round(y0 * frame.height, 2),
-                            round((x1 - x0) * frame.width, 2), round((y1 - y0) * frame.height, 2)]
-                    annotation_id += 1
-                    coco["annotations"].append({"id": annotation_id, "image_id": image_id,
-                                                "category_id": _category_id(coco, obj["label"]), "bbox": bbox,
-                                                "area": round(bbox[2] * bbox[3], 2), "segmentation": [], "iscrowd": 0})
-                self._write(split, coco)
+                path = os.path.join(self._root, entry["round"], entry["split"], name)
+                with open(path, "wb") as f:
+                    f.write(entry["jpeg"])
 
                 self._pending.remove(entry)
-                saved.append({"id": item_id, "path": path, "new_id": f"{split}/{name}"})
+                saved.append({"id": item_id, "path": path, "new_id": f"{entry['round']}/{entry['split']}/{name}"})
             except Exception as exc:
                 errors.append({"id": item_id, "error": str(exc)})
         return saved, errors
 
-    def discard_pending(self):
-        self._pending = []
-
-
-def _category_id(coco: dict, name: str) -> int:
-    """Id da categoria com esse nome; cria a categoria se ainda não existe."""
-    for category in coco["categories"]:
-        if category["name"] == name:
-            return category["id"]
-    category_id = max((c["id"] for c in coco["categories"]), default=0) + 1
-    coco["categories"].append({"id": category_id, "name": name, "supercategory": "object"})
-    return category_id
+    def discard_pending(self, round_name: str):
+        self._pending = [e for e in self._pending if e["round"] != round_name]
 
 
 # ── Node ─────────────────────────────────────────────────────────────────────
@@ -320,38 +303,28 @@ class LabelerNode(Node):
         super().__init__("labeler_node")
 
         # Parâmetros (ros_nodes/labeler_params.yaml, passado pelo start.sh)
-        self.declare_parameter("classes", ["cup", "mug", "bottle"])
-        self.declare_parameter("datasets_path", os.path.expanduser("~/datasets"))
-        self.declare_parameter("detector_model", "google/owlv2-base-patch16-ensemble")
+        self.declare_parameter("root", os.path.expanduser("~/labeler_fotos"))
         self.declare_parameter("camera_topic", "/camera/color/image_raw")
+        self.declare_parameter("base_model", "yolo11n-seg.pt")
 
-        self._configured_classes = list(self.get_parameter("classes").value)
-        datasets_path  = self.get_parameter("datasets_path").value
-        detector_model = self.get_parameter("detector_model").value
-        camera_topic   = self.get_parameter("camera_topic").value
+        root         = os.path.expanduser(self.get_parameter("root").value)
+        camera_topic = self.get_parameter("camera_topic").value
+        self._base_model = self.get_parameter("base_model").value
 
+        self._root         = Path(root)
         self._lock         = threading.Lock()
-        self._latest_frame = None   # PIL Image — atualizado a cada frame
-        self._captured     = None   # (request_id, PIL Image) — travado no detect, liberado no stage/discard
-        self._dataset      = Dataset(os.path.expanduser(datasets_path))
-
-        self.get_logger().info(f"Carregando detector '{detector_model}'...")
-        try:
-            self._detector = OwlDetector(detector_model)
-            self.get_logger().info(f"Detector pronto ({self._detector.device}). Classes: {self._classes()}")
-        except Exception as exc:
-            self.get_logger().error(f"Falha ao carregar detector: {exc}")
-            self._detector = None
+        self._latest_frame = None   # (time.monotonic() da chegada, PIL Image) — atualizado a cada frame
+        self._dataset      = Dataset(root)
+        self._job          = None   # o último Job (rodando ou terminado)
 
         # Interfaces ROS
         self.create_subscription(Image,  camera_topic,                       self._on_image,   10)
         self.create_subscription(String, "/fbot_webclient/labeler/request",  self._on_request, 10)
         self._pub = self.create_publisher(String, "/fbot_webclient/labeler/response", 10)
+        self.create_timer(1.0, self._publish_job)
 
-        self.get_logger().info(f"Labeler node pronto. Ouvindo câmera em '{camera_topic}'.")
-
-    def _classes(self) -> list[str]:
-        return self._configured_classes + [c for c in self._dataset.classes() if c not in self._configured_classes]
+        self.get_logger().info(f"Labeler node pronto. Rodadas em '{root}'; sem câmera no navegador, "
+                               f"usa '{camera_topic}'.")
 
     # ── Callbacks ────────────────────────────────────────────────────────────
 
@@ -367,7 +340,7 @@ class LabelerNode(Node):
             pil_img = PILImage.fromarray(np.ascontiguousarray(arr))
 
             with self._lock:
-                self._latest_frame = pil_img
+                self._latest_frame = (time.monotonic(), pil_img)
 
         except Exception as exc:
             self.get_logger().error(f"Conversão de imagem falhou: {exc}")
@@ -380,83 +353,52 @@ class LabelerNode(Node):
             return
 
         action = req.get("action")
-        if   action == "detect":          self._handle_detect(req)
-        elif action == "stage":           self._handle_stage(req)
-        elif action == "save":            self._handle_save(req)
-        elif action == "gallery_list":    self._handle_gallery_list(req)
-        elif action == "discard_unsaved": self._handle_discard_unsaved(req)
-        elif action == "discard":
-            with self._lock:
-                if self._captured and self._captured[0] == req.get("request_id"):
-                    self._captured = None
-        else:
+        handler = {
+            "capture":         self._handle_capture,
+            "save":            self._handle_save,
+            "gallery_list":    self._handle_gallery_list,
+            "discard_unsaved": self._handle_discard_unsaved,
+            "rounds":          self._handle_rounds,
+            "status":          self._handle_status,
+            "upload":          self._handle_upload,
+            "dataset":         self._handle_dataset,
+            "train":           self._handle_train,
+            "label":           self._handle_label,
+            "cancel_job":      self._handle_cancel_job,
+        }.get(action)
+        if handler is None:
             self.get_logger().warn(f"Ação desconhecida: '{action}'")
+            return
+        try:
+            handler(req)
+        except ValueError as exc:   # pedido inválido: nome de rodada, split, imagem
+            self._respond({"action": action, "success": False, "error": str(exc)})
 
     # ── Handlers ─────────────────────────────────────────────────────────────
 
-    def _handle_detect(self, req: dict):
-        rid = req.get("request_id", "")
-
+    def _camera_jpeg(self) -> bytes:
+        """O último frame do tópico da câmera, em JPEG, se for recente."""
         with self._lock:
-            if self._latest_frame is None:
-                self._respond({"action": "detect", "success": False,
-                               "error": "Nenhum frame disponível", "request_id": rid})
-                return
-            frame = self._latest_frame.copy()
-            self._captured = (rid, frame)
+            latest = self._latest_frame
+        if latest is None:
+            raise ValueError("Nenhum frame disponível")
+        received_at, frame = latest
+        if time.monotonic() - received_at > MAX_FRAME_AGE_S:
+            raise ValueError(f"Câmera parada: nenhum frame nos últimos {MAX_FRAME_AGE_S:g} s")
+        buf = io.BytesIO()
+        frame.save(buf, "JPEG", quality=95)
+        return buf.getvalue()
 
-        if self._detector is None:
-            self._respond({"action": "detect", "success": False,
-                           "error": "Detector não carregado", "request_id": rid})
-            return
-
-        try:
-            classes = self._classes()
-            objects = self._detector.detect(frame, classes)
-            self.get_logger().info(f"Detectados: {[o['label'] for o in objects]}")
-            self._respond({"action": "detect", "success": True, "objects": objects, "classes": classes,
-                           "width": frame.width, "height": frame.height,
-                           "frame": _frame_to_data_url(frame), "request_id": rid})
-        except Exception as exc:
-            self.get_logger().error(f"Detecção falhou: {exc}")
-            self._respond({"action": "detect", "success": False,
-                           "error": str(exc), "request_id": rid})
-
-    def _handle_stage(self, req: dict):
-        rid   = req.get("request_id", "")
+    def _handle_capture(self, req: dict):
+        round_name = _round_name(req.get("round"))
         split = req.get("split", "train")
-
-        try:
-            objects = _parse_objects(req.get("objects"))
-        except (ValueError, TypeError, AttributeError) as exc:
-            self._respond({"action": "stage", "success": False,
-                           "error": str(exc) or "Objetos inválidos", "request_id": rid})
-            return
         if split not in SPLITS:
-            self._respond({"action": "stage", "success": False,
-                           "error": "Split inválido", "request_id": rid})
-            return
+            raise ValueError("Split inválido")
+        jpeg = _decode_jpeg(req["image"]) if "image" in req else self._camera_jpeg()
 
-        # Só o frame travado por este mesmo pedido: uma resposta atrasada não troca a foto.
-        with self._lock:
-            frame = self._captured[1] if self._captured and self._captured[0] == rid else None
-            if frame is not None:
-                self._captured = None
-
-        if frame is None:
-            self._respond({"action": "stage", "success": False,
-                           "error": "Nenhum frame capturado para este pedido", "request_id": rid})
-            return
-
-        try:
-            item = self._dataset.add(frame, objects, split)
-            self.get_logger().info(f"Captura pendente ({split}): {[o['label'] for o in objects]}")
-            self._respond({"action": "stage", "success": True,
-                           "item": item, "request_id": rid})
-        except Exception as exc:
-            self.get_logger().error(f"Falha ao guardar captura: {exc}")
-            self._respond({"action": "stage", "success": False,
-                           "error": str(exc), "request_id": rid})
+        item = self._dataset.add(round_name, jpeg, split)
+        self.get_logger().info(f"Captura pendente ({round_name}/{split})")
+        self._respond({"action": "capture", "success": True, "item": item})
 
     def _handle_save(self, req: dict):
         ids = req.get("ids")
@@ -481,18 +423,274 @@ class LabelerNode(Node):
                        "saved": saved, "errors": errors})
 
     def _handle_gallery_list(self, req: dict):
+        round_name = _round_name(req.get("round"))
         try:
             offset = max(int(req.get("offset", 0)), 0)
-            items, total = self._dataset.page(offset)
-            self._respond({"action": "gallery_list", "success": True,
+            items, total = self._dataset.page(round_name, offset)
+            self._respond({"action": "gallery_list", "success": True, "round": round_name,
                            "items": items, "offset": offset, "total": total})
         except Exception as exc:
             self.get_logger().error(f"Listagem da galeria falhou: {exc}")
             self._respond({"action": "gallery_list", "success": False, "error": str(exc)})
 
     def _handle_discard_unsaved(self, req: dict):
-        self._dataset.discard_pending()
-        self._respond({"action": "discard_unsaved", "success": True})
+        round_name = _round_name(req.get("round"))
+        self._dataset.discard_pending(round_name)
+        self._respond({"action": "discard_unsaved", "success": True, "round": round_name})
+
+    def _handle_rounds(self, req: dict):
+        self._respond({"action": "rounds", "success": True, "rounds": self._dataset.rounds()})
+
+    # ── Pipeline (Roboflow, treino, rotulagem) ──────────────────────────────
+
+    def _done_versions(self, folder: str, marker: str) -> list[str]:
+        base = self._root / folder
+        names = [p.name for p in base.iterdir() if VERSION_NAME.fullmatch(p.name) and (p / marker).is_file()] \
+            if base.is_dir() else []
+        return sorted(names, key=lambda n: int(n[1:]))
+
+    def _handle_status(self, req: dict):
+        config = load_config()
+        self._respond({
+            "action": "status", "success": True,
+            "roboflow": {"configured": bool(config.get("ROBOFLOW_API_KEY") and config.get("ROBOFLOW_PROJECT")),
+                         "project": config.get("ROBOFLOW_PROJECT"), "config_file": str(CONFIG_FILE)},
+            "versions": self._done_versions("_versions", "data.yaml"),
+            "models": self._done_versions("_models", "weights/best.pt"),
+            "job": self._job.public() if self._job else None,
+        })
+
+    def _start_job(self, kind: str, label: str, work):
+        """Runs work(job) in a thread; its return value is the job's final message."""
+        with self._lock:
+            if self._job and self._job.state == "running":
+                raise ValueError(f"{self._job.label}: still running")
+            job = self._job = Job(kind, label)
+        self.get_logger().info(f"Job: {label}")
+
+        def run():
+            try:
+                job.message = job.redact(work(job) or "Done")
+                job.state = "canceled" if job.cancel.is_set() else "done"
+            except Exception as exc:  # the page shows why; the node carries on
+                job.state = "canceled" if job.cancel.is_set() else "failed"
+                job.message = job.redact(exc)
+            job.changed = True
+            self.get_logger().info(f"Job {label}: {job.state} — {job.message}")
+
+        threading.Thread(target=run, daemon=True).start()
+        self._publish_job()
+
+    def _publish_job(self):
+        job = self._job
+        if job and job.changed:
+            job.changed = False
+            self._respond({"action": "job", "success": True, "job": job.public()})
+
+    def _run_process(self, job: Job, argv: list, cwd: Path):
+        """A subprocess in its own process group, its output going to the job's lines."""
+        job.line("$ " + " ".join(str(a) for a in argv))
+        cwd.mkdir(parents=True, exist_ok=True)
+        process = subprocess.Popen(
+            [str(a) for a in argv], cwd=cwd, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT, text=True, errors="replace", start_new_session=True,
+            env={**os.environ, **SUBPROCESS_ENV},
+            # Started with & from start.sh, this node may have SIGINT ignored; SIGINT is how the job stops.
+            preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_DFL),
+        )
+        job.process = process
+        try:
+            for raw in process.stdout:   # progress bars end in \r: each update is a line
+                if raw.strip():
+                    job.line(raw.rstrip())
+        finally:
+            code = process.wait()
+            job.process = None
+        if job.cancel.is_set():
+            # Not the caller's success message ("Model v3 trained") for a training that was stopped.
+            raise RuntimeError("Canceled")
+        if code != 0:
+            last = job.public()["lines"][-1:] or ["no output"]
+            raise RuntimeError(f"{argv[2]} failed (exit {code}): {last[0]}")
+
+    def _handle_cancel_job(self, req: dict):
+        job = self._job
+        if not job or job.state != "running":
+            raise ValueError("No job is running")
+        job.cancel.set()
+        job.line("[cancel requested]")
+        process = job.process
+        if process:
+            _killpg(process.pid, signal.SIGINT)
+            threading.Timer(JOB_STOP_TIMEOUT_S,
+                            lambda: process.poll() is None and _killpg(process.pid, signal.SIGKILL)).start()
+
+    def stop_job(self):
+        """Before exiting: a training in its own session would otherwise keep running, holding the GPU."""
+        process = self._job and self._job.process
+        if process and process.poll() is None:
+            _killpg(process.pid, signal.SIGINT)
+            try:
+                process.wait(timeout=JOB_STOP_TIMEOUT_S)
+            except subprocess.TimeoutExpired:
+                _killpg(process.pid, signal.SIGKILL)
+
+    def _handle_upload(self, req: dict):
+        round_name = _round_name(req.get("round"))
+        with_labels = bool(req.get("labels"))
+        photos = self._dataset.saved_photos(round_name)
+        if not photos:
+            raise ValueError(f"{round_name} has no saved photos")
+        labels_dir = self._root / "_labels" / round_name
+        if with_labels and not labels_dir.is_dir():
+            raise ValueError(f"Label {round_name} with a model first")
+        state_path = self._root / "_roboflow" / f"{round_name}.json"
+
+        def work(job):
+            roboflow = Roboflow(load_config())
+            state = json.loads(state_path.read_text()) if state_path.is_file() else {}
+            sent = annotated = 0
+            for split, path in photos:
+                if job.cancel.is_set():
+                    break
+                key = f"{split}/{path.name}"
+                entry = state.setdefault(key, {})
+                if "id" not in entry:
+                    entry["id"] = roboflow.upload(path, split, batch=round_name)
+                    sent += 1
+                    _write_json(state_path, state)
+                label_file = labels_dir / split / f"{path.name}.json"
+                if with_labels and not entry.get("labeled") and label_file.is_file():
+                    coco = label_file.read_text()
+                    if json.loads(coco)["annotations"]:
+                        if roboflow.annotate(entry["id"], f"{path.stem}.json", coco):
+                            annotated += 1
+                        else:
+                            job.line(f"{key}: already annotated in Roboflow, kept")
+                    entry["labeled"] = True
+                    _write_json(state_path, state)
+                job.line(f"{key}: ok")
+            return (f"Sent {sent} new photos" + (f" and {annotated} annotations" if with_labels else "")
+                    + f" to {roboflow.project}")
+
+        self._start_job("upload", f"Send {round_name} to Roboflow", work)
+
+    def _handle_dataset(self, req: dict):
+        new_version = bool(req.get("new_version"))
+
+        def work(job):
+            roboflow = Roboflow(load_config())
+            if new_version:
+                version = roboflow.generate_version()
+                job.line(f"Generated version {version}")
+            else:
+                versions = roboflow.versions()
+                if not versions:
+                    raise RuntimeError("The project has no version yet: use New version")
+                version = versions[-1]
+            deadline = time.monotonic() + EXPORT_TIMEOUT_S
+            while True:
+                try:
+                    link = roboflow.export_link(version)
+                except RoboflowError as exc:
+                    if not new_version:
+                        raise
+                    link = None  # a version just generated may not be exportable yet
+                    job.line(f"Not ready: {exc}")
+                if link or job.cancel.is_set():
+                    break
+                if time.monotonic() > deadline:
+                    raise RuntimeError(f"Roboflow took over {EXPORT_TIMEOUT_S // 60} min to export v{version}")
+                job.line(f"Roboflow is preparing the export of v{version}…")
+                time.sleep(EXPORT_POLL_S)
+            if not link:
+                return "Canceled"
+
+            target = self._root / "_versions" / f"v{version}"
+            partial = target.with_name(target.name + ".part")
+            shutil.rmtree(partial, ignore_errors=True)
+            partial.mkdir(parents=True)
+            archive = partial / "export.zip"
+            job.line(f"Downloading v{version}…")
+            # The link carries a download token: it isn't logged.
+            with requests.get(link, stream=True, timeout=(10, 120)) as response:
+                response.raise_for_status()
+                with open(archive, "wb") as f:
+                    for chunk in response.iter_content(1 << 20):
+                        f.write(chunk)
+            with zipfile.ZipFile(archive) as z:
+                z.extractall(partial)   # zipfile drops absolute paths and ".."
+            archive.unlink()
+            if not (partial / "data.yaml").is_file():
+                raise RuntimeError("The export has no data.yaml: is it a segmentation project?")
+            images = sum(1 for _ in partial.glob("*/images/*"))
+            if images == 0:
+                shutil.rmtree(partial, ignore_errors=True)
+                # Uploaded and annotated images wait in Roboflow's Annotate queue until added to the dataset.
+                raise RuntimeError(f"Version {version} has no images: in Roboflow, Annotate → add the annotated "
+                                   "images to the dataset, then make a new version")
+            shutil.rmtree(target, ignore_errors=True)
+            partial.rename(target)
+            return f"Dataset v{version} ready ({images} images)"
+
+        self._start_job("dataset", "New version" if new_version else "Download latest version", work)
+
+    def _handle_train(self, req: dict):
+        version = _version_name(req.get("version"))
+        try:
+            epochs = int(req.get("epochs", 50))
+        except (TypeError, ValueError):
+            raise ValueError("Epochs must be a number") from None
+        if not 1 <= epochs <= MAX_EPOCHS:
+            raise ValueError(f"Epochs: 1 to {MAX_EPOCHS}")
+        data = self._root / "_versions" / version / "data.yaml"
+        if not data.is_file():
+            raise ValueError(f"Dataset {version} isn't downloaded")
+        models = self._root / "_models"
+
+        def work(job):
+            # Trains into v<N>.part: only a training that finishes replaces v<N>, so a canceled or failed
+            # retrain keeps the last good model (ultralytics rewrites best.pt after every epoch).
+            partial = models / f"{version}.part"
+            shutil.rmtree(partial, ignore_errors=True)
+            try:
+                # cwd in _models: the base weights download there, not into the served web client.
+                self._run_process(job, [sys.executable, TRAIN_SCRIPT, "train", "--data", data, "--model",
+                                        self._base_model, "--project", models, "--name", partial.name,
+                                        "--epochs", epochs], cwd=models)
+            except Exception:
+                shutil.rmtree(partial, ignore_errors=True)
+                raise
+            target = models / version
+            shutil.rmtree(target, ignore_errors=True)
+            partial.rename(target)
+            return f"Model {version} trained"
+
+        self._start_job("train", f"Train on {version}", work)
+
+    def _handle_label(self, req: dict):
+        round_name = _round_name(req.get("round"))
+        model = _version_name(req.get("model"))
+        weights = self._root / "_models" / model / "weights" / "best.pt"
+        if not weights.is_file():
+            raise ValueError(f"Model {model} isn't trained")
+        if not self._dataset.saved_photos(round_name):
+            raise ValueError(f"{round_name} has no saved photos")
+        out = self._root / "_labels" / round_name
+        state_path = self._root / "_roboflow" / f"{round_name}.json"
+
+        def work(job):
+            self._run_process(job, [sys.executable, TRAIN_SCRIPT, "label", "--model", weights,
+                                    "--images", self._root / round_name, "--out", out], cwd=self._root / "_models")
+            # New labels: offer them again; Roboflow keeps any image already annotated (see annotate).
+            if state_path.is_file():
+                state = json.loads(state_path.read_text())
+                for entry in state.values():
+                    entry.pop("labeled", None)
+                _write_json(state_path, state)
+            return f"{round_name} labeled with {model}"
+
+        self._start_job("label", f"Label {round_name} with {model}", work)
 
     # ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -509,11 +707,12 @@ def main():
     node = LabelerNode()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):  # Ctrl+C, or SIGTERM from start.sh
         pass
     finally:
+        node.stop_job()
         node.destroy_node()
-        rclpy.shutdown()
+        rclpy.try_shutdown()
 
 
 if __name__ == "__main__":

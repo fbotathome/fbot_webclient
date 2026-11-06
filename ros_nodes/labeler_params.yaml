@@ -1,33 +1,9 @@
 labeler_node:
   ros__parameters:
-    # Classes que o detector (OWLv2) procura em cada foto, pelo nome.
-    # Use nomes em inglês: o OWLv2 acha bem mais com "cup" do que com "copo".
-    # As classes que já têm caixa no dataset entram na busca sozinhas, então uma
-    # classe nova digitada na revisão passa a ser procurada na próxima foto.
-    classes:
-      - cup
-      - mug
-      - bottle
-      - bowl
-      - box
-      - plate
-      - cutlery
-      - banana
-      - scissors
-      - book
-      - pen
+    # Pasta das rodadas de fotos (a página escolhe ou cria a rodada, ex.: demo, lote):
+    #   {root}/{rodada}/{train|valid}/{timestamp}.jpg
+    # As pastas que começam com "_" ficam para o que não é rodada.
+    root: ~/labeler_fotos
 
-    # Pasta raiz do dataset, no formato COCO do Roboflow:
-    #   {datasets_path}/{train|valid}/{timestamp}.jpg
-    #   {datasets_path}/{train|valid}/_annotations.coco.json
-    # As capturas confirmadas só são gravadas aqui quando salvas pela galeria
-    # do webclient. Um export COCO do Roboflow pode ser copiado para cá: as
-    # classes dele entram na busca (a galeria só lista as fotos do labeler).
-    datasets_path: ~/datasets
-
-    # Modelo do detector (Hugging Face). Baixado na primeira vez (~600 MB);
-    # usa a GPU se houver (~0,5 s por foto), senão a CPU (alguns segundos).
-    detector_model: google/owlv2-base-patch16-ensemble
-
-    # O tópico da câmera vem do start.sh (LABELER_CAMERA_TOPIC), que também
-    # aponta a página para ele.
+    # O tópico da câmera do robô vem do start.sh (LABELER_CAMERA_TOPIC); só é usado
+    # quando o navegador não tem câmera.

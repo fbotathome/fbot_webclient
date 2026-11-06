@@ -651,3 +651,66 @@
     background: #4caf50;
     color: #fff;
 }
+
+/* Round, Roboflow pipeline and training job */
+
+.labeler-round-select,
+.labeler-round-name {
+    width: 100%;
+    min-width: 0;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #3a3d40;
+    background: var(--card-secondary);
+    color: var(--foreground);
+    font-size: 13px;
+}
+
+.labeler-round-new,
+.labeler-pipeline-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+}
+
+.labeler-pipeline-row {
+    grid-template-columns: 1fr 1fr;
+}
+
+.labeler-pipeline-row--train {
+    grid-template-columns: minmax(0, 1fr) 72px auto;
+}
+
+.labeler-pipeline-row--label {
+    grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.labeler-pipeline-note {
+    font-size: 12px;
+    color: var(--sidebar-muted);
+    overflow-wrap: anywhere;
+}
+
+.labeler-job-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.labeler-job-log {
+    max-height: 140px;
+    overflow: auto;
+    padding: 8px;
+    border-radius: 8px;
+    background: var(--card-secondary);
+    color: var(--sidebar-muted);
+    font-size: 11px;
+    line-height: 1.35;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.labeler-job-log:empty {
+    display: none;
+}

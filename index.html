@@ -1279,17 +1279,9 @@
                                     <img src="assets/sidebar/camera.svg" alt="" />
                                     <span>Waiting for feed&hellip;</span>
                                 </div>
-                                <!-- Live MJPEG stream -->
+                                <!-- This device's camera (Steam Deck), or the robot's MJPEG stream when there is none -->
+                                <video id="labeler-feed-video" class="labeler-feed-img" autoplay playsinline muted style="display:none"></video>
                                 <img id="labeler-feed-img" class="labeler-feed-img" style="display:none" />
-                                <!-- Frozen frame shown after capture -->
-                                <img id="labeler-frozen-img" class="labeler-feed-img" style="display:none" />
-                                <!-- Boxes of the capture under review; drag on it to add a missed object -->
-                                <svg id="labeler-boxes" class="labeler-boxes" preserveAspectRatio="xMidYMid meet" style="display:none"></svg>
-                                <!-- Analyzing overlay -->
-                                <div class="labeler-analyzing-overlay" id="labeler-analyzing-overlay" style="display:none">
-                                    <div class="labeler-spinner"></div>
-                                    <span>Analyzing&hellip;</span>
-                                </div>
                                 <div class="labeler-flash" id="labeler-flash"></div>
                             </div>
 
@@ -1304,20 +1296,14 @@
                         <!-- Controls -->
                         <div class="labeler-controls-card">
 
-                            <!-- Detected objects -->
+                            <!-- Round: one folder of photos (e.g. demo to annotate, lote to label with the model) -->
                             <div class="labeler-control-group">
-                                <span class="labeler-control-label">Objects</span>
-                                <div class="labeler-prediction-box" id="labeler-prediction-box">
-                                    <span class="labeler-prediction-idle" id="labeler-prediction-idle">Capture to find the objects</span>
-                                    <div class="labeler-objects" id="labeler-objects" style="display:none"></div>
+                                <span class="labeler-control-label">Round</span>
+                                <select class="labeler-round-select" id="labeler-round"></select>
+                                <div class="labeler-round-new">
+                                    <input type="text" class="labeler-round-name" id="labeler-round-name" placeholder="New round" maxlength="40" autocomplete="off" spellcheck="false" />
+                                    <button class="labeler-gallery-action" id="labeler-round-add">Add</button>
                                 </div>
-                                <datalist id="labeler-class-list"></datalist>
-                            </div>
-
-                            <!-- Confirm / Discard -->
-                            <div class="labeler-action-row" id="labeler-action-row" style="display:none">
-                                <button class="labeler-confirm-btn" id="labeler-confirm-btn">&#10003; Confirm</button>
-                                <button class="labeler-discard-btn" id="labeler-discard-btn">&#10005; Discard</button>
                             </div>
 
                             <!-- Split -->
@@ -1342,6 +1328,41 @@
                                         <span class="labeler-stat-value" id="labeler-stat-valid">0</span>
                                     </div>
                                 </div>
+                            </div>
+
+                            <!-- Pipeline: the round to Roboflow, its dataset back, train, label (jobs in labelerNode.py) -->
+                            <div class="labeler-control-group">
+                                <span class="labeler-control-label">Roboflow</span>
+                                <span class="labeler-pipeline-note" id="labeler-roboflow-status">&hellip;</span>
+                                <div class="labeler-pipeline-row">
+                                    <button class="labeler-gallery-action" id="labeler-upload">Send round</button>
+                                    <button class="labeler-gallery-action" id="labeler-upload-labels">Send with labels</button>
+                                </div>
+                                <div class="labeler-pipeline-row">
+                                    <button class="labeler-gallery-action" id="labeler-dataset-new">New version</button>
+                                    <button class="labeler-gallery-action" id="labeler-dataset-latest">Get latest</button>
+                                </div>
+                            </div>
+
+                            <div class="labeler-control-group">
+                                <span class="labeler-control-label">Model</span>
+                                <div class="labeler-pipeline-row labeler-pipeline-row--train">
+                                    <select class="labeler-round-select" id="labeler-version" aria-label="Dataset version"></select>
+                                    <input type="number" class="labeler-round-name" id="labeler-epochs" value="50" min="1" max="1000" aria-label="Epochs" />
+                                    <button class="labeler-gallery-action" id="labeler-train">Train</button>
+                                </div>
+                                <div class="labeler-pipeline-row labeler-pipeline-row--label">
+                                    <select class="labeler-round-select" id="labeler-model" aria-label="Trained model"></select>
+                                    <button class="labeler-gallery-action" id="labeler-label">Label round</button>
+                                </div>
+                            </div>
+
+                            <div class="labeler-control-group">
+                                <div class="labeler-job-head">
+                                    <span class="labeler-control-label" id="labeler-job-title">No job yet</span>
+                                    <button class="labeler-gallery-clear" id="labeler-job-cancel" style="display:none">Cancel</button>
+                                </div>
+                                <pre class="labeler-job-log" id="labeler-job-log"></pre>
                             </div>
 
                             <div class="labeler-status">

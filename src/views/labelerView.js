@@ -1,19 +1,14 @@
 import CONFIG from "../config.js";
 
 const _els = {
+    feedVideo: null,
     feedImg: null,
-    frozenImg: null,
     feedPlaceholder: null,
     flashOverlay: null,
-    analyzingOverlay: null,
     shutterBtn: null,
-    boxesSvg: null,
-    predictionIdle: null,
-    objectsList: null,
-    classList: null,
-    actionRow: null,
-    confirmBtn: null,
-    discardBtn: null,
+    roundSelect: null,
+    roundName: null,
+    roundAdd: null,
     splitBtnTrain: null,
     splitBtnValid: null,
     statTrain: null,
@@ -27,25 +22,43 @@ const _els = {
     selectAllBtn: null,
     saveBtn: null,
     clearBtn: null,
+    roboflowStatus: null,
+    uploadBtn: null,
+    uploadLabelsBtn: null,
+    datasetNewBtn: null,
+    datasetLatestBtn: null,
+    versionSelect: null,
+    epochsInput: null,
+    trainBtn: null,
+    modelSelect: null,
+    labelBtn: null,
+    jobTitle: null,
+    jobCancel: null,
+    jobLog: null,
 };
 
 const LONG_PRESS_MS = 450;
-// One color per object, so each box on the image matches its row in the list.
-const OBJECT_COLORS = ["#fe5000", "#29b6f6", "#66bb6a", "#ffca28", "#ab47bc", "#ef5350", "#26a69a", "#ec407a"];
-// A drag shorter than this (fraction of the image side) is a tap, not a box.
-const MIN_BOX_FRACTION = 0.01;
-const SVG_NS = "http://www.w3.org/2000/svg";
+// Same rule as ROUND_NAME in ros_nodes/labelerNode.py: the name becomes a folder.
+const ROUND_NAME = /^[A-Za-z0-9][A-Za-z0-9_-]{0,39}$/;
+// Long side of a photo from this device's camera; larger frames are scaled down.
+const MAX_PHOTO_SIDE = 1920;
+const CAMERA_CONSTRAINTS = {
+    audio: false,
+    video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
+};
 
 let _isInitialized = false;
 let _currentSplit = "train";
-let _currentTopic = null;
-// Gallery items, newest first: { id, labels, split, saved, time, thumb }
+let _currentRound = "demo";
+let _rounds = [];   // [{ name, train, valid }] from the node
+let _stream = null; // this device's camera, when the browser gave it
+let _roundCallback = null;
+// From the node's status: { roboflow: { configured, project, config_file }, versions, models }
+let _pipeline = { roboflow: null, versions: [], models: [] };
+let _job = null;    // the node's last job: { kind, label, state, message, lines }
+let _pipelineCallbacks = {};
+// Gallery items of the current round, newest first: { id, round, split, saved, time, thumb }
 const _captures = [];
-// Objects of the capture under review: { label, confidence (null when drawn), box: [x0, y0, x1, y1] (0-1) }
-let _objects = [];
-let _frameSize = { width: 1, height: 1 };
-let _drawStart = null; // { x, y } (0-1) while a box is being drawn
-let _draft = null;     // the box being drawn
 const _selected = new Set();
 let _isSelecting = false;
 let _longPressTimer = null;
@@ -57,35 +70,17 @@ function _buildStreamUrl(topic) {
     return `${CONFIG.videoServerUrl}/stream?topic=${topic}&type=mjpeg`;
 }
 
-function _buildSnapshotUrl(topic) {
-    return `${CONFIG.videoServerUrl}/snapshot?topic=${topic}`;
-}
-
-function _blobToDataUrl(blob) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
-}
-
 export function initView() {
     if (_isInitialized) return;
 
+    _els.feedVideo        = document.getElementById("labeler-feed-video");
     _els.feedImg          = document.getElementById("labeler-feed-img");
-    _els.frozenImg        = document.getElementById("labeler-frozen-img");
+    _els.roundSelect      = document.getElementById("labeler-round");
+    _els.roundName        = document.getElementById("labeler-round-name");
+    _els.roundAdd         = document.getElementById("labeler-round-add");
     _els.feedPlaceholder  = document.getElementById("labeler-feed-placeholder");
     _els.flashOverlay     = document.getElementById("labeler-flash");
-    _els.analyzingOverlay = document.getElementById("labeler-analyzing-overlay");
-    _els.boxesSvg         = document.getElementById("labeler-boxes");
     _els.shutterBtn       = document.getElementById("labeler-shutter-btn");
-    _els.predictionIdle   = document.getElementById("labeler-prediction-idle");
-    _els.objectsList      = document.getElementById("labeler-objects");
-    _els.classList        = document.getElementById("labeler-class-list");
-    _els.actionRow        = document.getElementById("labeler-action-row");
-    _els.confirmBtn       = document.getElementById("labeler-confirm-btn");
-    _els.discardBtn       = document.getElementById("labeler-discard-btn");
     _els.splitBtnTrain    = document.getElementById("labeler-split-train");
     _els.splitBtnValid    = document.getElementById("labeler-split-valid");
     _els.statTrain        = document.getElementById("labeler-stat-train");
@@ -99,12 +94,37 @@ export function initView() {
     _els.selectAllBtn     = document.getElementById("labeler-gallery-select-all");
     _els.saveBtn          = document.getElementById("labeler-gallery-save");
     _els.clearBtn         = document.getElementById("labeler-gallery-clear");
+    _els.roboflowStatus   = document.getElementById("labeler-roboflow-status");
+    _els.uploadBtn        = document.getElementById("labeler-upload");
+    _els.uploadLabelsBtn  = document.getElementById("labeler-upload-labels");
+    _els.datasetNewBtn    = document.getElementById("labeler-dataset-new");
+    _els.datasetLatestBtn = document.getElementById("labeler-dataset-latest");
+    _els.versionSelect    = document.getElementById("labeler-version");
+    _els.epochsInput      = document.getElementById("labeler-epochs");
+    _els.trainBtn         = document.getElementById("labeler-train");
+    _els.modelSelect      = document.getElementById("labeler-model");
+    _els.labelBtn         = document.getElementById("labeler-label");
+    _els.jobTitle         = document.getElementById("labeler-job-title");
+    _els.jobCancel        = document.getElementById("labeler-job-cancel");
+    _els.jobLog           = document.getElementById("labeler-job-log");
 
     _els.splitBtnTrain.addEventListener("click", () => _setSplit("train"));
     _els.splitBtnValid.addEventListener("click", () => _setSplit("valid"));
 
     // Named handlers: initView runs on every visit to the page, and
     // addEventListener only dedupes identical function references.
+    _els.roundSelect.addEventListener("change", _onRoundSelect);
+    _els.roundAdd.addEventListener("click", _onRoundAdd);
+    _els.roundName.addEventListener("keydown", _onRoundNameKey);
+    _els.uploadBtn.addEventListener("click", _onUpload);
+    _els.uploadLabelsBtn.addEventListener("click", _onUploadLabels);
+    _els.datasetNewBtn.addEventListener("click", _onDatasetNew);
+    _els.datasetLatestBtn.addEventListener("click", _onDatasetLatest);
+    _els.versionSelect.addEventListener("change", _syncPipeline);
+    _els.modelSelect.addEventListener("change", _syncPipeline);
+    _els.trainBtn.addEventListener("click", _onTrain);
+    _els.labelBtn.addEventListener("click", _onLabel);
+    _els.jobCancel.addEventListener("click", _onJobCancel);
     _els.selectBtn.addEventListener("click", _onSelectClick);
     _els.selectAllBtn.addEventListener("click", _onSelectAllClick);
     _els.saveBtn.addEventListener("click", _onSaveClick);
@@ -115,13 +135,132 @@ export function initView() {
     _els.galleryGrid.addEventListener("pointerleave", _cancelLongPress);
     _els.galleryGrid.addEventListener("pointercancel", _cancelLongPress);
     _els.galleryGrid.addEventListener("contextmenu", _onGridContextMenu);
-    _els.boxesSvg.addEventListener("pointerdown", _onBoxesPointerDown);
-    _els.boxesSvg.addEventListener("pointermove", _onBoxesPointerMove);
-    _els.boxesSvg.addEventListener("pointerup", _onBoxesPointerUp);
-    _els.boxesSvg.addEventListener("pointercancel", _onBoxesPointerCancel);
 
     _isInitialized = true;
+    _renderRounds();
     _renderGallery();
+    _renderPipeline();
+}
+
+// ── Pipeline: Roboflow, training, labeling ─────────────────────────────────
+
+/** status: { roboflow, versions, models, job } from the node. */
+export function setPipelineStatus({ roboflow, versions, models, job }) {
+    _pipeline = { roboflow, versions, models };
+    if (job) _job = job;
+    _renderPipeline();
+}
+
+/** job: { kind, label, state, message, lines } — the node sends it while it runs and when it ends. */
+export function showJob(job) {
+    _job = job;
+    _renderPipeline();
+}
+
+/** callbacks: { upload(withLabels), dataset(newVersion), train(version, epochs), label(model), cancel() } */
+export function setPipelineCallbacks(callbacks) {
+    _pipelineCallbacks = callbacks;
+}
+
+function _fillSelect(select, names, emptyText) {
+    const kept = select.value;
+    select.replaceChildren(...(names.length
+        ? names.map((name) => Object.assign(document.createElement("option"), { value: name, textContent: name }))
+        : [Object.assign(document.createElement("option"), { value: "", textContent: emptyText })]));
+    // The newest by default (just downloaded or trained), else what was chosen.
+    select.value = names.includes(kept) ? kept : names.at(-1) ?? "";
+}
+
+function _renderPipeline() {
+    if (!_els.versionSelect) return;
+    _fillSelect(_els.versionSelect, _pipeline.versions, "No dataset yet");
+    _fillSelect(_els.modelSelect, _pipeline.models, "No model yet");
+    if (_job) {
+        const ended = _job.state !== "running" && _job.message ? ` — ${_job.message}` : "";
+        _els.jobTitle.textContent = `${_job.label} · ${_job.state}${ended}`;
+        _els.jobLog.textContent = _job.lines.join("\n");
+        _els.jobLog.scrollTop = _els.jobLog.scrollHeight;
+        _els.jobCancel.style.display = _job.state === "running" ? "" : "none";
+    }
+    _syncPipeline();
+}
+
+/** Enables what can run now: one job at a time, Roboflow only once it is set up. */
+function _syncPipeline() {
+    if (!_els.uploadBtn) return;
+    const busy = _job?.state === "running";
+    const roboflow = _pipeline.roboflow;
+    const round = _rounds.find((r) => r.name === _currentRound);
+    const photos = round ? round.train + round.valid : 0;
+    _els.roboflowStatus.textContent = !roboflow ? "…"
+        : roboflow.configured ? `Project: ${roboflow.project}`
+        : `Not set up: add ROBOFLOW_API_KEY and ROBOFLOW_PROJECT to ${roboflow.config_file}`;
+    const ready = !busy && !!roboflow?.configured;
+    _els.uploadBtn.disabled = !ready || photos === 0;
+    _els.uploadLabelsBtn.disabled = !ready || !round?.labeled;
+    _els.datasetNewBtn.disabled = !ready;
+    _els.datasetLatestBtn.disabled = !ready;
+    _els.trainBtn.disabled = busy || !_els.versionSelect.value;
+    _els.labelBtn.disabled = busy || !_els.modelSelect.value || photos === 0;
+}
+
+function _onUpload() { _pipelineCallbacks.upload?.(false); }
+function _onUploadLabels() { _pipelineCallbacks.upload?.(true); }
+function _onDatasetNew() { _pipelineCallbacks.dataset?.(true); }
+function _onDatasetLatest() { _pipelineCallbacks.dataset?.(false); }
+function _onTrain() { _pipelineCallbacks.train?.(_els.versionSelect.value, Number(_els.epochsInput.value)); }
+function _onLabel() { _pipelineCallbacks.label?.(_els.modelSelect.value); }
+function _onJobCancel() { _pipelineCallbacks.cancel?.(); }
+
+function _renderRounds() {
+    if (!_els.roundSelect) return;
+    // A round just added has no folder until its first photo is saved.
+    const rounds = _rounds.some((r) => r.name === _currentRound)
+        ? _rounds : [..._rounds, { name: _currentRound, train: 0, valid: 0 }];
+    _els.roundSelect.replaceChildren(...rounds.map(({ name, train, valid }) =>
+        Object.assign(document.createElement("option"), { value: name, textContent: `${name} (${train + valid})` })));
+    _els.roundSelect.value = _currentRound;
+    _syncPipeline();
+}
+
+/** rounds: [{ name, train, valid }] — the rounds on disk, with their saved photos. */
+export function setRounds(rounds) {
+    _rounds = rounds;
+    _renderRounds();
+}
+
+export function getCurrentRound() {
+    return _currentRound;
+}
+
+/** fn(name) runs when another round is chosen or a new one added. */
+export function setRoundCallback(fn) {
+    _roundCallback = fn;
+}
+
+function _switchRound(name) {
+    if (name === _currentRound) return;
+    _currentRound = name;
+    _renderRounds();
+    _roundCallback?.(name);
+}
+
+function _onRoundSelect() {
+    _switchRound(_els.roundSelect.value);
+}
+
+function _onRoundAdd() {
+    const name = _els.roundName.value.trim();
+    if (!ROUND_NAME.test(name)) {
+        setStatus(false, "Round: letters, digits, _ and - (up to 40)");
+        return;
+    }
+    _els.roundName.value = "";
+    _switchRound(name);
+}
+
+function _onRoundNameKey(event) {
+    if (event.key === "Enter") _onRoundAdd();
 }
 
 function _setSplit(split) {
@@ -130,21 +269,44 @@ function _setSplit(split) {
     _els.splitBtnValid.classList.toggle("active", split === "valid");
 }
 
-export function startFeed(topic) {
+/**
+ * Shows this device's camera (the Steam Deck's), or the robot's camera topic when the
+ * browser gives none: no camera, permission denied, or a page not opened over HTTPS.
+ */
+export async function startFeed(topic) {
     if (!_els.feedImg) return;
-    _currentTopic = topic;
+    try {
+        if (!navigator.mediaDevices?.getUserMedia) throw new Error("the page isn't HTTPS");
+        const stream = await navigator.mediaDevices.getUserMedia(CAMERA_CONSTRAINTS);
+        if (!_els.feedVideo) {  // the page was left while the browser asked
+            stream.getTracks().forEach((track) => track.stop());
+            return;
+        }
+        _stream = stream;
+        _els.feedVideo.srcObject = stream;
+        _els.feedVideo.style.display = "block";
+        _els.feedPlaceholder.style.display = "none";
+        setStatus(true, "Live · this device's camera");
+        return;
+    } catch (err) {
+        console.warn("[labeler] No camera from the browser, using the robot's:", err);
+    }
+    if (!_els.feedImg) return;
     _els.feedImg.onerror = () => setStatus(false, "No feed");
     _els.feedImg.onload = () => {
         _els.feedImg.style.display = "block";
         _els.feedPlaceholder.style.display = "none";
-        setStatus(true, "Live");
+        setStatus(true, "Live · robot camera");
     };
     _els.feedImg.src = _buildStreamUrl(topic);
 }
 
 export function stopFeed() {
     if (!_els.feedImg) return;
-    _currentTopic = null;
+    _stream?.getTracks().forEach((track) => track.stop());
+    _stream = null;
+    _els.feedVideo.srcObject = null;
+    _els.feedVideo.style.display = "none";
     _els.feedImg.src = "";
     _els.feedImg.style.display = "none";
     _els.feedPlaceholder.style.display = "flex";
@@ -152,50 +314,21 @@ export function stopFeed() {
 }
 
 /**
- * Captures a single frame via the video server's /snapshot endpoint
- * (a plain HTTP GET returning one JPEG, as opposed to the live MJPEG
- * stream). This avoids the canvas-tainting issues that come from drawing
- * a cross-origin multipart/x-mixed-replace <img> onto a <canvas>, which
- * behave inconsistently across browsers (notably Safari).
- *
- * Falls back to a placeholder frame if the request fails, so the UI flow
- * can still be tested without a camera connected.
+ * The photo for a capture: { image } (a JPEG data URL) from this device's camera,
+ * {} when the robot's camera is in use (the node takes its latest frame), or { error }.
  */
-export async function snapshotCurrentFrame() {
-    if (_currentTopic) {
-        try {
-            const res = await fetch(_buildSnapshotUrl(_currentTopic));
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const blob = await res.blob();
-            return await _blobToDataUrl(blob);
-        } catch (err) {
-            console.warn("[labeler] Snapshot fetch failed, using placeholder:", err);
-        }
-    }
-
-    return _placeholderFrame();
-}
-
-function _placeholderFrame() {
+export function grabFrame() {
+    if (!_stream) return {};
+    const video = _els.feedVideo;
+    const live = _stream.getVideoTracks().some((track) => track.readyState === "live");
+    if (!live || video.readyState < 2 || !video.videoWidth) return { error: "Camera stopped: reopen the page" };
+    // The camera's own resolution, not the size on screen.
+    const scale = Math.min(1, MAX_PHOTO_SIDE / Math.max(video.videoWidth, video.videoHeight));
     const canvas = document.createElement("canvas");
-    canvas.width  = 640;
-    canvas.height = 480;
-    const ctx = canvas.getContext("2d");
-
-    ctx.fillStyle = "#1e2022";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.strokeStyle = "#fe5000";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
-    ctx.fillStyle = "#fe5000";
-    ctx.font = "bold 22px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText("No camera feed", canvas.width / 2, canvas.height / 2 - 12);
-    ctx.fillStyle = "#cfcfcf";
-    ctx.font = "14px Arial";
-    ctx.fillText("Offline / demo mode", canvas.width / 2, canvas.height / 2 + 18);
-
-    return canvas.toDataURL("image/jpeg", 0.92);
+    canvas.width = Math.round(video.videoWidth * scale);
+    canvas.height = Math.round(video.videoHeight * scale);
+    canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+    return { image: canvas.toDataURL("image/jpeg", 0.92) };
 }
 
 export function triggerFlash() {
@@ -207,216 +340,12 @@ export function triggerFlash() {
 }
 
 /**
- * Freezes the feed: hides the live stream and shows the snapshot.
- */
-export function showFrozenFrame(dataUrl) {
-    if (!_els.frozenImg || !_els.feedImg) return;
-    _els.frozenImg.src = dataUrl;
-    _els.frozenImg.style.display = "block";
-    _els.feedImg.style.display = "none";
-}
-
-/**
- * Restores the live feed and clears the frozen frame.
- */
-export function showLiveFeed() {
-    if (!_els.frozenImg || !_els.feedImg) return;
-    _els.frozenImg.style.display = "none";
-    _els.frozenImg.src = "";
-    _els.feedImg.style.display = "block";
-}
-
-export function showAnalyzing(visible) {
-    if (_els.analyzingOverlay) {
-        _els.analyzingOverlay.style.display = visible ? "flex" : "none";
-    }
-}
-
-export function showShutter(visible) {
-    if (_els.shutterBtn) {
-        _els.shutterBtn.style.display = visible ? "flex" : "none";
-    }
-}
-
-export function lockShutter(ms = 2000) {
-    if (!_els.shutterBtn) return;
-    _els.shutterBtn.disabled = true;
-    setTimeout(() => {
-        if (_els.shutterBtn) _els.shutterBtn.disabled = false;
-    }, ms);
-}
-
-/**
- * Shows the detected objects over the frozen frame, for review.
- * @param {{ objects: { label: string, confidence: number, box: number[] }[], classes: string[],
- *           width: number, height: number }} detection  boxes are [x0, y0, x1, y1] in 0-1
- */
-export function showDetections({ objects, classes, width, height }) {
-    if (!_els.objectsList) return;
-    _objects = objects.map(({ label, confidence, box }) => ({ label, confidence, box }));
-    _frameSize = { width, height };
-    _els.classList.replaceChildren(...classes.map((c) => Object.assign(document.createElement("option"), { value: c })));
-    _els.boxesSvg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-    _els.boxesSvg.style.display = "block";
-    _els.predictionIdle.style.display = "none";
-    _els.objectsList.style.display = "flex";
-    _els.actionRow.style.display = "grid";
-    _renderObjects();
-}
-
-export function resetPrediction() {
-    if (!_els.predictionIdle) return;
-    _objects = [];
-    _drawStart = null;
-    _draft = null;
-    _els.predictionIdle.style.display = "";
-    _els.objectsList.style.display = "none";
-    _els.objectsList.replaceChildren();
-    _els.boxesSvg.style.display = "none";
-    _els.boxesSvg.replaceChildren();
-    _els.actionRow.style.display = "none";
-}
-
-/** The reviewed objects: [{ label, box }]. */
-export function getObjects() {
-    return _objects.map(({ label, box }) => ({ label: label.trim(), box }));
-}
-
-export function focusObject(index) {
-    _els.objectsList?.querySelectorAll(".labeler-object-label")[index]?.focus();
-}
-
-function _objectColor(index) {
-    return OBJECT_COLORS[index % OBJECT_COLORS.length];
-}
-
-function _renderObjects() {
-    const rows = _objects.map((obj, i) => {
-        const row = document.createElement("div");
-        row.className = "labeler-object";
-        row.style.setProperty("--object-color", _objectColor(i));
-
-        const swatch = document.createElement("span");
-        swatch.className = "labeler-object-swatch";
-        swatch.textContent = i + 1;
-
-        const input = document.createElement("input");
-        input.type = "text";
-        input.className = "labeler-object-label";
-        input.value = obj.label;
-        input.placeholder = "class";
-        input.autocomplete = "off";
-        input.spellcheck = false;
-        input.setAttribute("list", "labeler-class-list");
-        input.addEventListener("input", () => {
-            obj.label = input.value;
-            _renderBoxes();
-        });
-
-        const confidence = document.createElement("span");
-        confidence.className = "labeler-object-conf";
-        confidence.textContent = obj.confidence == null ? "drawn" : `${Math.round(obj.confidence * 100)}%`;
-
-        const remove = document.createElement("button");
-        remove.className = "labeler-object-remove";
-        remove.setAttribute("aria-label", `Remove object ${i + 1}`);
-        remove.innerHTML = '<span class="icon icon--x" aria-hidden="true"></span>';
-        remove.addEventListener("click", () => {
-            _objects.splice(i, 1);
-            _renderObjects();
-        });
-
-        row.append(swatch, input, confidence, remove);
-        return row;
-    });
-
-    const hint = document.createElement("span");
-    hint.className = "labeler-objects-hint";
-    hint.textContent = _objects.length > 0
-        ? "Drag on the image to add a missed object"
-        : "No objects found \u2014 drag on the image to mark one";
-    _els.objectsList.replaceChildren(...rows, hint);
-    _renderBoxes();
-}
-
-function _renderBoxes() {
-    const shapes = _objects.map((obj, i) => _boxShape(obj.box, _objectColor(i), `${i + 1} ${obj.label}`));
-    if (_draft) shapes.push(_boxShape(_draft, "#ffffff", ""));
-    _els.boxesSvg.replaceChildren(...shapes);
-}
-
-function _boxShape([x0, y0, x1, y1], color, text) {
-    const { width, height } = _frameSize;
-    const group = document.createElementNS(SVG_NS, "g");
-    const rect = document.createElementNS(SVG_NS, "rect");
-    rect.setAttribute("x", x0 * width);
-    rect.setAttribute("y", y0 * height);
-    rect.setAttribute("width", (x1 - x0) * width);
-    rect.setAttribute("height", (y1 - y0) * height);
-    rect.setAttribute("stroke", color);
-    group.append(rect);
-
-    if (text) {
-        const fontSize = Math.round(width * 0.022);
-        const label = document.createElementNS(SVG_NS, "text");
-        label.setAttribute("x", x0 * width);
-        // Above the box, or inside it when the box touches the top of the image.
-        label.setAttribute("y", y0 * height > fontSize ? y0 * height - fontSize * 0.3 : y0 * height + fontSize);
-        label.setAttribute("font-size", fontSize);
-        label.setAttribute("fill", color);
-        label.textContent = text;
-        group.append(label);
-    }
-    return group;
-}
-
-/** Pointer position on the frame, in 0-1, clamped to the image. */
-function _framePoint(event) {
-    const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(_els.boxesSvg.getScreenCTM().inverse());
-    const clamp = (v) => Math.min(Math.max(v, 0), 1);
-    return { x: clamp(point.x / _frameSize.width), y: clamp(point.y / _frameSize.height) };
-}
-
-function _onBoxesPointerDown(event) {
-    _drawStart = _framePoint(event);
-    _draft = [_drawStart.x, _drawStart.y, _drawStart.x, _drawStart.y];
-    _els.boxesSvg.setPointerCapture(event.pointerId);
-}
-
-function _onBoxesPointerMove(event) {
-    if (!_drawStart) return;
-    const p = _framePoint(event);
-    _draft = [Math.min(_drawStart.x, p.x), Math.min(_drawStart.y, p.y), Math.max(_drawStart.x, p.x), Math.max(_drawStart.y, p.y)];
-    _renderBoxes();
-}
-
-function _onBoxesPointerUp() {
-    if (!_drawStart) return;
-    const box = _draft;
-    _drawStart = null;
-    _draft = null;
-    if (box[2] - box[0] < MIN_BOX_FRACTION || box[3] - box[1] < MIN_BOX_FRACTION) {
-        _renderBoxes();
-        return;
-    }
-    _objects.push({ label: "", confidence: null, box });
-    _renderObjects();
-    focusObject(_objects.length - 1);
-}
-
-function _onBoxesPointerCancel() {
-    _drawStart = null;
-    _draft = null;
-    _renderBoxes();
-}
-
-/**
- * Adds items ({ id, label, split, saved, time, thumb }) to the gallery,
+ * Adds items ({ id, round, split, saved, time, thumb }) of the current round to the gallery,
  * ignoring ones that are already there.
  */
 export function addToGallery(items) {
     for (const item of items) {
-        if (!_captures.some((c) => c.id === item.id)) _captures.push(item);
+        if (item.round === _currentRound && !_captures.some((c) => c.id === item.id)) _captures.push(item);
     }
     _captures.sort((a, b) => b.time - a.time);
     _renderGallery();
@@ -458,14 +387,6 @@ export function getCurrentSplit() {
 
 export function setShutterCallback(fn) {
     _els.shutterBtn?.addEventListener("click", fn);
-}
-
-export function setConfirmCallback(fn) {
-    _els.confirmBtn?.addEventListener("click", fn);
-}
-
-export function setDiscardCallback(fn) {
-    _els.discardBtn?.addEventListener("click", fn);
 }
 
 /** fn receives the ids of the selected (unsaved) captures. */
@@ -565,14 +486,8 @@ function _renderGallery() {
 
         const img = document.createElement("img");
         img.src = item.thumb;
-        // A capture can hold several boxes of the same class: list each class once.
-        const labels = [...new Set(item.labels)].join(", ") || "no objects";
-        img.alt = labels;
+        img.alt = `${item.split} capture`;
         img.draggable = false;
-
-        const badge = document.createElement("span");
-        badge.className = "labeler-gallery-badge";
-        badge.textContent = labels;
 
         const tag = document.createElement("span");
         tag.className = `labeler-split-tag ${item.split}`;
@@ -582,7 +497,7 @@ function _renderGallery() {
         check.className = "labeler-gallery-check";
         check.textContent = "\u2713";
 
-        div.append(img, badge, tag, check);
+        div.append(img, tag, check);
         _els.galleryGrid.appendChild(div);
     }
 
@@ -611,7 +526,7 @@ function _syncGallery() {
     if (_isSelecting) {
         _els.galleryTitle.textContent = `${_selected.size} selected`;
     } else if (pending.length > 0) {
-        _els.galleryTitle.textContent = `Gallery \u00b7 ${pending.length} unsaved`;
+        _els.galleryTitle.textContent = `Gallery · ${pending.length} unsaved`;
     } else {
         _els.galleryTitle.textContent = "Gallery";
     }
@@ -631,13 +546,10 @@ function _syncGallery() {
 }
 
 export function destroyView() {
-    resetPrediction();
-    showLiveFeed();
-    showShutter(true);
     stopFeed();
     _cancelLongPress();
     clearGallery();
     Object.keys(_els).forEach((k) => (_els[k] = null));
+    // _currentSplit and _currentRound are kept: their controls keep their state across visits too.
     _isInitialized = false;
-    _currentSplit = "train";
 }
