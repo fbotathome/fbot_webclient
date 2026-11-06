@@ -63,14 +63,15 @@ function _updateReadout(pan, tilt) {
 }
 
 function _nxNyToPanTilt(nx, ny) {
-  const pan = PAN_CENTER + nx * PAN_RANGE;
+  // Pan above 180 looks left (camera +Y). Stick right is nx > 0, so the sign is flipped.
+  const pan = PAN_CENTER - nx * PAN_RANGE;
   const tiltRange = ny < 0 ? NECK_UP_LIMIT - TILT_CENTER : TILT_CENTER - NECK_DOWN_LIMIT;
   const tilt = TILT_CENTER - ny * tiltRange;
   return { pan, tilt };
 }
 
 function _panTiltToNxNy(pan, tilt) {
-  const nx = (pan - PAN_CENTER) / PAN_RANGE;
+  const nx = (PAN_CENTER - pan) / PAN_RANGE;
   const tiltRange = tilt >= TILT_CENTER ? NECK_UP_LIMIT - TILT_CENTER : TILT_CENTER - NECK_DOWN_LIMIT;
   const ny = tiltRange === 0 ? 0 : -(tilt - TILT_CENTER) / tiltRange;
   return { nx, ny };
