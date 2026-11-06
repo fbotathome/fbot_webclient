@@ -5,13 +5,16 @@ const rosbridgePort = params.get("rosbridge_port") || "9090";
 const videoPort = params.get("video_port") || "8181";
 // Bag downloads; must match BAG_PORT in scripts/start.sh.
 const bagPort = params.get("bag_port") || "8182";
-// Labeler page feed; must match LABELER_CAMERA_TOPIC in scripts/start.sh.
+// Labeler page feed when the browser has no camera; must match LABELER_CAMERA_TOPIC in scripts/start.sh.
 const cameraTopic = params.get("camera_topic") || "/femtobolt/color/image_raw";
+// Over HTTPS (scripts/start.sh) scripts/serve.py relays rosbridge, the video and the bag
+// downloads on the page's own origin: an HTTPS page can't open ws:// or http:// connections.
+const secure = window.location.protocol === "https:";
 
 const CONFIG = Object.freeze({
-  rosbridgeUrl: `ws://${robotIp}:${rosbridgePort}`,
-  videoServerUrl: `http://${robotIp}:${videoPort}`,
-  bagServerUrl: `http://${robotIp}:${bagPort}`,
+  rosbridgeUrl: secure ? `wss://${window.location.host}/rosbridge` : `ws://${robotIp}:${rosbridgePort}`,
+  videoServerUrl: secure ? `${window.location.origin}/video` : `http://${robotIp}:${videoPort}`,
+  bagServerUrl: secure ? window.location.origin : `http://${robotIp}:${bagPort}`,
   cameraTopic,
   reconnectTimeout: 3000,
 });

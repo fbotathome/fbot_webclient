@@ -39,12 +39,28 @@ if [ -z "$LOCAL_IP" ]; then
   LOCAL_IP="localhost"
 fi
 
-ACCESS_URL="http://$LOCAL_IP:$HTTP_PORT?robot_ip=$LOCAL_IP"
-[ "$ROSBRIDGE_PORT" != "9090" ] && ACCESS_URL+="&rosbridge_port=$ROSBRIDGE_PORT"
-[ "$WEB_VIDEO_PORT" != "8181" ] && ACCESS_URL+="&video_port=$WEB_VIDEO_PORT"
-[ "$BAG_PORT" != "8182" ] && ACCESS_URL+="&bag_port=$BAG_PORT"
-[ "$LABELER_CAMERA_TOPIC" != "/femtobolt/color/image_raw" ] && ACCESS_URL+="&camera_topic=$LABELER_CAMERA_TOPIC"
-echo "Access: $ACCESS_URL"
+# HTTPS, so the browser lets the Labeler use the camera (Steam Deck); serve.py relays rosbridge,
+# the video and the bag downloads on the same port. Self-signed, one per IP: each browser
+# accepts its warning once per address.
+CERT_DIR="$HOME/.config/fbot_webclient"
+CERT="$CERT_DIR/webclient-$LOCAL_IP.crt"
+KEY="$CERT_DIR/webclient-$LOCAL_IP.key"
+if [ ! -f "$CERT" ] || [ ! -f "$KEY" ]; then
+  mkdir -p "$CERT_DIR"
+  SAN="DNS:localhost,IP:127.0.0.1"
+  [[ "$LOCAL_IP" =~ ^[0-9.]+$ ]] && SAN="IP:$LOCAL_IP,$SAN"
+  # A server certificate, not a CA (openssl's default for -x509): browsers then show the plain
+  # "self-signed" warning, which they let you accept.
+  openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -subj "/CN=fbot_webclient" \
+    -addext "subjectAltName=$SAN" -addext "basicConstraints=critical,CA:FALSE" \
+    -addext "keyUsage=critical,digitalSignature,keyEncipherment" -addext "extendedKeyUsage=serverAuth" \
+    -keyout "$KEY" -out "$CERT" 2>/dev/null
+  chmod 600 "$KEY"
+fi
+
+ACCESS_URL="https://$LOCAL_IP:$HTTP_PORT"
+[ "$LABELER_CAMERA_TOPIC" != "/femtobolt/color/image_raw" ] && ACCESS_URL+="?camera_topic=$LABELER_CAMERA_TOPIC"
+echo "Access: $ACCESS_URL (accept the certificate warning once)"
 
 cleanup() {
   echo "\nShutting down services..."
@@ -106,7 +122,8 @@ fi
 python3 "$PROJECT_DIR/ros_nodes/labelerNode.py" --ros-args --params-file "$PROJECT_DIR/ros_nodes/labeler_params.yaml" -p camera_topic:="$LABELER_CAMERA_TOPIC" &
 LABELER_PID=$!
 
-python3 "$SCRIPT_DIR/serve.py" --port "$HTTP_PORT" --bind "$HOST" --directory "$PROJECT_DIR" &
+python3 "$SCRIPT_DIR/serve.py" --port "$HTTP_PORT" --bind "$HOST" --directory "$PROJECT_DIR" \
+  --cert "$CERT" --key "$KEY" --rosbridge-port "$ROSBRIDGE_PORT" --video-port "$WEB_VIDEO_PORT" --bag-port "$BAG_PORT" &
 HTTP_PID=$!
 
 wait
